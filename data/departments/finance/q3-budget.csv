@@ -1,0 +1,4 @@
+team,line_item,budgeted_usd,actual_usd
+engineering,infra,50000,42000
+engineering,headcount,120000,118000
+marketing,campaigns,30000,34500

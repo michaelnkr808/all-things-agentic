@@ -1,0 +1,25 @@
+[project]
+name = "agentic"
+version = "0.1.0"
+description = "Hackathon: enterprise agent fleet — state manager, gatherers, veto checker, graph client"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+    "google-adk",          # Gemini agents (state manager + gatherers)
+    "google-genai",        # direct Gemini calls where ADK is overkill
+    "anthropic>=0.40",     # client + veto checker
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

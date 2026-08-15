@@ -1,0 +1,29 @@
+# Canonical environment config. Copy to environment.yaml and edit.
+# Schema: src/agentic/contracts/config.py
+
+departments:
+  - name: engineering
+    path: data/departments/engineering
+    allowed_roles: [analyst, engineer, admin]
+    file_globs: ["**/*.md", "**/*.txt"]
+  - name: finance
+    path: data/departments/finance
+    allowed_roles: [analyst, admin]      # engineers can't read finance
+    file_globs: ["**/*.md", "**/*.csv"]
+  - name: hr
+    path: data/departments/hr
+    allowed_roles: [admin]               # locked down — good for the permissions demo
+
+gatherers:
+  max_gatherers: 4
+  max_files_per_gatherer: 10
+  overgather_factor: 1.5
+
+models:
+  client: claude-fable-5
+  state_manager: gemini-3.5-flash
+  gatherer: gemini-3.5-flash
+  veto: claude-fable-5
+
+veto:
+  max_retries: 2
