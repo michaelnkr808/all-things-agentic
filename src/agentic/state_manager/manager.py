@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from agentic.contracts.config import EnvironmentConfig
 from agentic.contracts.messages import CompiledOutput, GatherResult, VetoVerdict
+from agentic.gatherers import permissions
 from agentic.gatherers.spawn import spawn_gatherers
 from agentic.state_manager import output
 from agentic.state_manager.manager_planning import plan_to_requests, run_planner
@@ -41,9 +42,10 @@ def _gathered_files(results: list[GatherResult]):
 
 async def plan_and_gather(prompt: str, config: EnvironmentConfig) -> list[GatherResult]:
     """Parse the prompt, pick departments, spawn gatherers (see spawn.py)."""
+    perms = permissions.load_permissions_config()
     plan = await run_planner(prompt, config)
-    requests = plan_to_requests(plan, config)
-    return await spawn_gatherers(requests, config)
+    requests = plan_to_requests(plan, config, requester_role=perms.principal.role)
+    return await spawn_gatherers(requests, config, permissions_cfg=perms)
 
 
 async def synthesize(

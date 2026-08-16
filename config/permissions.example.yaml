@@ -1,0 +1,19 @@
+# Canonical permissions config. Copy to permissions.yaml and edit.
+# Schema: agentic.gatherers.permissions (Malik)
+#
+# This is the trusted source of the session's principal role and the
+# role -> department access map. It is authoritative and never derived
+# from LLM output.
+#
+# AND semantics: a role may read a department only if BOTH this config
+# grants the role that department AND config/environment.yaml lists the
+# role in that department's `allowed_roles`. Any disagreement denies.
+
+principal:
+  role: analyst
+
+roles:
+  analyst:
+    departments: [engineering, finance]
+  admin:
+    departments: [engineering, finance, hr]

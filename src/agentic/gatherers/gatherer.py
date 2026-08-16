@@ -33,7 +33,8 @@ async def gather_files(request: GatherRequest, config: EnvironmentConfig) -> Gat
     for pattern in dept.file_globs:
         candidates.extend(p for p in root.glob(pattern) if p.is_file())
 
-    # Permission gate first: anything denied is never read or returned.
+    # Permission pre-filter first: anything denied here is never read.
+    # The authoritative, non-bypassable gate is spawn.spawn_gatherers.
     allowed: list[Path] = []
     for p in candidates:
         rel = p.relative_to(root).as_posix()
@@ -45,6 +46,7 @@ async def gather_files(request: GatherRequest, config: EnvironmentConfig) -> Gat
     # Loose relevance ranking — over-gather bias via overgather_factor.
     ranked = sorted(allowed, key=lambda p: _keyword_hits(p, request), reverse=True)
     limit = int(request.max_files * config.gatherers.overgather_factor)
+    limit = min(limit, config.gatherers.max_files_per_gatherer)
     for p in ranked[:limit]:
         rel = p.relative_to(root).as_posix()
         note = f"matched {_keyword_hits(p, request)} keyword(s)"

@@ -56,6 +56,48 @@ a schema, ping the other first. This is what lets us code in parallel:
   Malik's permission checks read the parsed object, never the raw YAML.
 - `config/environment.example.yaml` — the canonical config shape.
 
+## ⚠️ FOR MICHAEL — permissions changes landed (read before you code)
+
+Gatherer permissions are now enforced at a **mandatory gate in
+`spawn.spawn_gatherers`** (Malik), not just inside the gatherer. Your
+`gather()` result is post-filtered there: every `GatheredFile` is
+re-verified against the permissions config and any file that fails is
+stripped into `result.denied` before synthesis/output. Do not bypass the
+gate — a file is readable only when ALL of these hold:
+
+1. `config/permissions.yaml` grants the principal role the department
+   (`roles.<role>.departments`), AND
+2. `config/environment.yaml` lists the role in that department's
+   `allowed_roles`, AND
+3. the path resolves strictly inside the department's data dir
+   (`permissions.check` — rejects `..`, absolute paths, Windows-style `\`,
+   empty/`.` paths, and symlinks that escape).
+
+New shared surface (contract rules apply — sync before changing):
+
+- **New permissions config** `config/permissions.yaml` (example:
+  `config/permissions.example.yaml`). Copy it in setup alongside
+  `environment.yaml`. Schema lives in `agentic/gatherers/permissions.py`
+  (`PermissionsConfig` / `Principal` / `RoleAccess`), not in `contracts/`.
+  An unparseable permissions config fails closed at load.
+- `spawn.spawn_gatherers(requests, config, permissions_cfg=None)` loads
+  `config/permissions.yaml` by default; `manager.plan_and_gather` passes
+  it through. The config principal role overrides any role a request
+  claims — a request whose `requester_role` disagrees is denied outright.
+- `manager_planning.plan_to_requests(plan, config, requester_role="analyst")`
+  gained the `requester_role` kwarg (sourced from the permissions config).
+
+Behavioural changes affecting you:
+
+- `GathererLimits.max_files_per_gatherer` is now a **hard ceiling**:
+  `min(max_files * overgather_factor, max_files_per_gatherer)` — overgather
+  is advisory; never exceed the cap.
+- `permissions.check()` hardened per item 3 above; the new edge-case tests
+  in `tests/test_permissions.py` cover each.
+- Demo setup now needs two copies:
+  `cp config/environment.example.yaml config/environment.yaml` and
+  `cp config/permissions.example.yaml config/permissions.yaml`.
+
 ## Michael's build order
 
 1. **Config parsing** (`contracts/config.py::load_config`) — first, because both
