@@ -25,5 +25,10 @@ models:
   gatherer: gemini-3.5-flash
   veto: claude-fable-5
 
+agent_types:
+  file_gatherer:
+    model: gemini-3.5-flash
+    max_files: 10
+
 veto:
   max_retries: 2
