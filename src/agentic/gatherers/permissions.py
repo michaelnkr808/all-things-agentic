@@ -8,6 +8,10 @@ access (AND semantics) — any disagreement fails closed to deny.
 
 The mandatory, non-bypassable gate lives in spawn.spawn_gatherers; the
 gatherer's own pre-read check here is the first (efficiency) layer.
+
+Cloud-backed departments (gcs / drive) go through the same gate; their
+containment is string-level (no symlinks/cwd), with backend-specific roots
+(bucket prefix, folder parent-chain) enforced inside the cloud adapters.
 """
 
 from __future__ import annotations
@@ -80,19 +84,12 @@ def load_permissions_config(path: str | Path = DEFAULT_PERMISSIONS_CONFIG) -> Pe
     return cfg
 
 
-def check(path: str, requester_role: str, department: DepartmentConfig) -> bool:
-    """True if `requester_role` may read `path` in this department.
+def _path_within(root: Path, path: str) -> bool:
+    """True if `path` resolves strictly inside the filesystem `root`.
 
-    Three checks, all must pass:
-    1. the role is on the department's allow-list,
-    2. the path is non-empty and not '.', and
-    3. the path resolves strictly inside the department's data dir
-       (rejects ``..`` escapes, absolute paths, both separator styles,
-       and symlinks that point outside the root).
+    Rejects ``..`` escapes, absolute paths, both separator styles, empty/'.'
+    paths, and symlinks that resolve outside the root.
     """
-    if requester_role not in department.allowed_roles:
-        return False
-
     if not path or not path.strip():
         return False
 
@@ -100,13 +97,54 @@ def check(path: str, requester_role: str, department: DepartmentConfig) -> bool:
     if raw.is_absolute():
         return False
 
-    root = Path(department.path).resolve()
     candidate = (root / raw).resolve()
     try:
         candidate.relative_to(root)
     except ValueError:
         return False
     return candidate != root
+
+
+def _cloud_within(path: str) -> bool:
+    """String-level containment for cloud keys (gcs relative paths / drive paths).
+
+    GCS and Drive have no symlinks and no cwd, so containment reduces to
+    rejecting empty/'.' paths, absolute keys, ``\\`` separators, and any
+    ``..`` segment. The backend-specific root checks (bucket prefix for gcs,
+    folder parent-chain for drive) are enforced inside the adapters before a
+    GatheredFile ever reaches the spawn gate.
+    """
+    if not path or not path.strip():
+        return False
+
+    raw = path.replace("\\", "/")
+    if raw.startswith("/"):
+        return False
+
+    parts = [p for p in raw.split("/") if p not in ("", ".")]
+    if not parts:
+        return False
+    if any(p == ".." for p in parts):
+        return False
+    return True
+
+
+def check(path: str, requester_role: str, department: DepartmentConfig) -> bool:
+    """True if `requester_role` may read `path` in this department.
+
+    Three checks, all must pass:
+    1. the role is on the department's allow-list,
+    2. the path is non-empty and not '.', and
+    3. the path stays strictly inside the department's data root —
+       filesystem containment for local departments, string-level
+       containment for cloud-backed ones.
+    """
+    if requester_role not in department.allowed_roles:
+        return False
+
+    if department.storage is not None:
+        return _cloud_within(path)
+    return _path_within(Path(department.path).resolve(), path)
 
 
 def allowed(

@@ -97,6 +97,15 @@ Behavioural changes affecting you:
 - Demo setup now needs two copies:
   `cp config/environment.example.yaml config/environment.yaml` and
   `cp config/permissions.example.yaml config/permissions.yaml`.
+- Cloud-backed departments (optional, `storage:` block): GCS buckets or a
+  Google Drive folder per department, read through the same permission
+  gate. Service account via `GOOGLE_APPLICATION_CREDENTIALS` (gitignored);
+  grant it read access to exactly the buckets/folders the principal role
+  may touch. Drive structure is scripted:
+  `python -m agentic.gatherers.cloud.drive_setup --create-drive "AllThingsAgentic"`
+  (creates the department tree, uploads samples, grants the SA, prints
+  `folder_id`s for `environment.yaml`). The adapters live in
+  `gatherers/cloud/` and are the only code that talks to GCP.
 
 ## Michael's build order
 
@@ -144,9 +153,12 @@ contracts define fake inputs you can hand-write.
 
 ## Demo script
 
-1. Show `config/environment.yaml` (departments, permissions, gatherer caps).
+1. Show `config/environment.yaml` (departments, permissions, gatherer caps,
+   optional cloud `storage:` backends).
 2. Ask a cross-department question ("summarize Q3 engineering spend vs finance
-   budget").
+   budget") — pulls local or GCS/Drive departments through the same gate.
 3. Watch gatherers fan out (log lines), veto checker reject once (rig a strict
    pass), state manager revise, approve.
-4. Open the generated graph viz — answer node linked to every source file.
+4. Optional cloud denial beat: ask something in the locked `hr` department
+   (Drive folder the SA isn't granted) — denied by config AND GCP IAM.
+5. Open the generated graph viz — answer node linked to every source file.

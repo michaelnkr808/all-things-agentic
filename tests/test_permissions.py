@@ -132,3 +132,48 @@ def test_load_permissions_config_undefined_principal_role(tmp_path):
     )
     with pytest.raises(ConfigError):
         load_permissions_config(p)
+
+
+def _cloud_dept(provider: str = "gcs") -> DepartmentConfig:
+    return DepartmentConfig(
+        name="eng",
+        path="data/departments/engineering",
+        allowed_roles=["admin"],
+        file_globs=["**/*.md"],
+        storage={"provider": provider, "bucket": "b", "folder_id": "root"},
+    )
+
+
+def test_cloud_check_denies_bad_paths():
+    dept = _cloud_dept()
+    assert check("nested/roadmap.md", "admin", dept) is True
+    assert check("roadmap.md", "admin", dept) is True
+    assert check("", "admin", dept) is False
+    assert check(".", "admin", dept) is False
+    assert check("../escape.md", "admin", dept) is False
+    assert check("/etc/passwd", "admin", dept) is False
+    assert check("..\\..\\secret.txt", "admin", dept) is False
+    assert check("a/../b", "admin", dept) is False
+
+
+def test_cloud_check_still_enforces_role_allowlist():
+    dept = _cloud_dept()
+    assert check("roadmap.md", "analyst", dept) is False
+    assert check("roadmap.md", "admin", dept) is True
+
+
+def test_storage_config_requires_backend_identifier():
+    with pytest.raises(Exception):
+        DepartmentConfig(
+            name="eng",
+            path="data/departments/engineering",
+            allowed_roles=["admin"],
+            storage={"provider": "gcs", "folder_id": "x"},
+        )
+    with pytest.raises(Exception):
+        DepartmentConfig(
+            name="eng",
+            path="data/departments/engineering",
+            allowed_roles=["admin"],
+            storage={"provider": "drive", "bucket": "x"},
+        )

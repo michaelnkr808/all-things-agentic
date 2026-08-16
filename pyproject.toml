@@ -8,6 +8,8 @@ dependencies = [
     "pyyaml>=6.0",
     "google-adk",          # Gemini agents (state manager + gatherers)
     "google-genai",        # direct Gemini calls where ADK is overkill
+    "google-cloud-storage",  # GCS backend for cloud-backed departments
+    "google-api-python-client",  # Google Drive backend
     "anthropic>=0.40",     # client + veto checker
 ]
 

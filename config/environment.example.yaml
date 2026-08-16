@@ -14,6 +14,34 @@ departments:
     path: data/departments/hr
     allowed_roles: [admin]               # locked down — good for the permissions demo
 
+# Cloud-backed departments: add a `storage:` block to read from GCS or
+# Google Drive instead of the local filesystem. `path` stays required
+# (offline identity + containment anchor). Permissions are enforced
+# exactly like local files — a cloud file only survives the spawn gate if
+# the principal role is granted the department in BOTH configs and the
+# path is contained under the backend root (bucket prefix / Drive folder).
+#
+# GCS example (credentials via GOOGLE_APPLICATION_CREDENTIALS):
+#   - name: engineering
+#     path: data/departments/engineering
+#     allowed_roles: [analyst, engineer, admin]
+#     storage:
+#       provider: gcs
+#       bucket: acme-enterprise-engineering
+#       prefix: ""              # object keys become relative paths
+#       max_bytes: 5000000
+#
+# Drive example (folder id from drive_setup.py; SA granted on the shared
+# drive for exactly the departments the principal role may read):
+#   - name: finance
+#     path: data/departments/finance
+#     allowed_roles: [analyst, admin]
+#     storage:
+#       provider: drive
+#       folder_id: "1AbCdEfGhIjKlMnOpQrStUvWx"
+#
+# See PLAN.md / README for the drive_setup.py workflow.
+
 gatherers:
   max_gatherers: 4
   max_files_per_gatherer: 10
