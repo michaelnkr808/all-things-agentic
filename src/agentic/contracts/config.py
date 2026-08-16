@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from enum import Enum
+
 import yaml
 from pydantic import BaseModel, Field, ValidationError
 
@@ -43,10 +45,20 @@ class VetoConfig(BaseModel):
     max_retries: int = 2  # revise passes before we give up and ship with a warning
 
 
+class AgentType(str, Enum):
+    FILE_GATHERER = "file_gatherer"
+
+
+class AgentTypeConfig(BaseModel):
+    model: str
+    max_files: int
+
+
 class EnvironmentConfig(BaseModel):
     departments: list[DepartmentConfig]
     gatherers: GathererLimits = GathererLimits()
     models: ModelConfig = ModelConfig()
+    agent_types: dict[AgentType, AgentTypeConfig]
     veto: VetoConfig = VetoConfig()
 
     def department(self, name: str) -> DepartmentConfig:

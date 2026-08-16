@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from agentic.contracts.config import AgentType
+
 
 class GatherRequest(BaseModel):
     """State manager (Malik: spawn.py) -> a single gatherer (Michael: gather.py)."""
@@ -17,13 +19,14 @@ class GatherRequest(BaseModel):
     keywords: list[str] = Field(default_factory=list)  # loose match hints
     max_files: int = 10
     requester_role: str = "analyst"  # checked by permissions.py (Malik)
+    agent_type: AgentType = AgentType.FILE_GATHERER  # which kind of agent to spawn
 
 
 class GatheredFile(BaseModel):
     path: str  # relative to the department root, used for [[wikilinks]]
     department: str
     content: str
-    relevance_note: str = ""  # one line: why the gatherer grabbed it
+    relevance_note: str = ""
 
 
 class GatherResult(BaseModel):
