@@ -1,9 +1,6 @@
 # Future Aspirations — Agentic Enterprise Pipeline
 
-These are my goals for this project. This living document captures the
-philosophy, what we are building for the hackathon, and the longer-horizon
-vision. Keep it honest: mark what is built, what is in scope, and what is
-aspirational.
+These are my (Malik's) goals and philosophy about the project, mostly surrounding the hackathon rubric.
 
 ## 1. Philosophy & hard invariants
 
