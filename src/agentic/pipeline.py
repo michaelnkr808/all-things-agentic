@@ -4,7 +4,7 @@
     results = await manager.plan_and_gather(prompt, config)
     compiled = await manager.synthesize(prompt, results, config)
     for _ in range(config.veto.max_retries + 1):
-        verdict = await checker.check(prompt, compiled, config)
+        verdict = await checker.check(prompt, compiled, config, results)
         if verdict.approved:
             break
         compiled = await manager.revise(prompt, compiled, verdict, results, config)
