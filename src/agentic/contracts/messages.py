@@ -55,6 +55,12 @@ class CompiledOutput(BaseModel):
     revision: int = 0  # bumped each time the veto checker sends it back
 
 
+class RunResult(BaseModel):
+    compiled: CompiledOutput
+    verdict: VetoVerdict
+    attempts: int
+
+
 class VetoVerdict(BaseModel):
     """Veto checker -> state manager (on veto) or client (on approve)."""
 
