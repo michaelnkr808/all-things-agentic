@@ -30,3 +30,18 @@ async def test_gatherer_reads_finance_for_analyst():
     result = await gather_files(request, config)
     assert {f.path for f in result.files} == {"q3-budget.csv"}
     assert result.denied == []
+
+
+async def test_gatherer_cannot_cross_departments():
+    config = load_config("config/environment.example.yaml")
+    request = GatherRequest(
+        request_id="r4",
+        department="engineering",
+        query="compensation bands q3 budget marketing spend",
+    )
+    result = await gather_files(request, config)
+    assert {f.path for f in result.files} == {"roadmap.md"}
+    assert all(f.department == "engineering" for f in result.files)
+    joined = " ".join(f.content for f in result.files).lower()
+    assert "compensation" not in joined
+    assert "budgeted_usd" not in joined

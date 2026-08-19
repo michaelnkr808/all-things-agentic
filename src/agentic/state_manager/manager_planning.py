@@ -106,8 +106,18 @@ async def run_planner(prompt: str, config: EnvironmentConfig) -> BaseModel:
     return plan
 
 
-def plan_to_requests(plan: BaseModel, config: EnvironmentConfig) -> list[GatherRequest]:
-    """Convert planner output into the GatherRequests that spawn_gatherers() fans out."""
+def plan_to_requests(
+    plan: BaseModel,
+    config: EnvironmentConfig,
+    requester_role: str = "analyst",
+) -> list[GatherRequest]:
+    """Convert planner output into the GatherRequests that spawn_gatherers() fans out.
+
+    The role comes from the trusted permissions config via
+    manager.plan_and_gather; the default here is only a safe fallback for
+    direct callers. spawn_gatherers re-pins the role to the permissions
+    config regardless, so this value can never widen access.
+    """
     agent_config = config.agent_types[AgentType.FILE_GATHERER]
     requests = []
     for i, task in enumerate(plan.tasks):
@@ -118,7 +128,7 @@ def plan_to_requests(plan: BaseModel, config: EnvironmentConfig) -> list[GatherR
                 query=task.task_prompt,
                 keywords=[],
                 max_files=agent_config.max_files,
-                requester_role="analyst",
+                requester_role=requester_role,
                 agent_type=AgentType.FILE_GATHERER,
             )
         )

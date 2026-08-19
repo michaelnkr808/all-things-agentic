@@ -35,10 +35,11 @@ def test_plan_to_requests():
     plan = Plan.model_validate_json(
         '{"tasks": [{"agent_key": "finance", "task_prompt": "find the q3 budget"}]}'
     )
-    requests = plan_to_requests(plan, config)
+    requests = plan_to_requests(plan, config, requester_role="admin")
     assert len(requests) == 1
     request = requests[0]
     assert isinstance(request, GatherRequest)
     assert request.department == "finance"
     assert request.query == "find the q3 budget"
     assert request.max_files == config.agent_types[AgentType.FILE_GATHERER].max_files
+    assert request.requester_role == "admin"

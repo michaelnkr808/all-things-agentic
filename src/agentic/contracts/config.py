@@ -11,12 +11,38 @@ from pathlib import Path
 
 from enum import Enum
 
+from typing import Literal
+
 import yaml
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, model_validator
 
 
 class ConfigError(Exception):
     """Raised when the environment config is missing, malformed or wrong"""
+
+
+class StorageConfig(BaseModel):
+    """Optional cloud backend for a department's data.
+
+    A department with `storage` set reads its files from the cloud instead
+    of the local filesystem. Object keys / Drive paths resolve as relative
+    paths under the department root, so permissions containment and the
+    [[wikilinks]] emitter treat them exactly like local files.
+    """
+
+    provider: Literal["gcs", "drive"]
+    bucket: str | None = None  # gcs: bucket name
+    prefix: str = ""  # gcs: logical containment root for object keys
+    folder_id: str | None = None  # drive: department root folder
+    max_bytes: int = 5_000_000  # per-file download cap
+
+    @model_validator(mode="after")
+    def _requires_its_backend(self) -> "StorageConfig":
+        if self.provider == "gcs" and not self.bucket:
+            raise ValueError("gcs storage requires 'bucket'")
+        if self.provider == "drive" and not self.folder_id:
+            raise ValueError("drive storage requires 'folder_id'")
+        return self
 
 
 class DepartmentConfig(BaseModel):
@@ -26,6 +52,7 @@ class DepartmentConfig(BaseModel):
     file_globs: list[str] = Field(
         default_factory=lambda: ["**/*.md", "**/*.txt", "**/*.csv"]
     )
+    storage: StorageConfig | None = None  # cloud backend, if any
 
 
 class GathererLimits(BaseModel):

@@ -56,6 +56,57 @@ a schema, ping the other first. This is what lets us code in parallel:
   Malik's permission checks read the parsed object, never the raw YAML.
 - `config/environment.example.yaml` — the canonical config shape.
 
+## ⚠️ FOR MICHAEL — permissions changes landed (read before you code)
+
+Gatherer permissions are now enforced at a **mandatory gate in
+`spawn.spawn_gatherers`** (Malik), not just inside the gatherer. Your
+`gather()` result is post-filtered there: every `GatheredFile` is
+re-verified against the permissions config and any file that fails is
+stripped into `result.denied` before synthesis/output. Do not bypass the
+gate — a file is readable only when ALL of these hold:
+
+1. `config/permissions.yaml` grants the principal role the department
+   (`roles.<role>.departments`), AND
+2. `config/environment.yaml` lists the role in that department's
+   `allowed_roles`, AND
+3. the path resolves strictly inside the department's data dir
+   (`permissions.check` — rejects `..`, absolute paths, Windows-style `\`,
+   empty/`.` paths, and symlinks that escape).
+
+New shared surface (contract rules apply — sync before changing):
+
+- **New permissions config** `config/permissions.yaml` (example:
+  `config/permissions.example.yaml`). Copy it in setup alongside
+  `environment.yaml`. Schema lives in `agentic/gatherers/permissions.py`
+  (`PermissionsConfig` / `Principal` / `RoleAccess`), not in `contracts/`.
+  An unparseable permissions config fails closed at load.
+- `spawn.spawn_gatherers(requests, config, permissions_cfg=None)` loads
+  `config/permissions.yaml` by default; `manager.plan_and_gather` passes
+  it through. The config principal role overrides any role a request
+  claims — a request whose `requester_role` disagrees is denied outright.
+- `manager_planning.plan_to_requests(plan, config, requester_role="analyst")`
+  gained the `requester_role` kwarg (sourced from the permissions config).
+
+Behavioural changes affecting you:
+
+- `GathererLimits.max_files_per_gatherer` is now a **hard ceiling**:
+  `min(max_files * overgather_factor, max_files_per_gatherer)` — overgather
+  is advisory; never exceed the cap.
+- `permissions.check()` hardened per item 3 above; the new edge-case tests
+  in `tests/test_permissions.py` cover each.
+- Demo setup now needs two copies:
+  `cp config/environment.example.yaml config/environment.yaml` and
+  `cp config/permissions.example.yaml config/permissions.yaml`.
+- Cloud-backed departments (optional, `storage:` block): GCS buckets or a
+  Google Drive folder per department, read through the same permission
+  gate. Service account via `GOOGLE_APPLICATION_CREDENTIALS` (gitignored);
+  grant it read access to exactly the buckets/folders the principal role
+  may touch. Drive structure is scripted:
+  `python -m agentic.gatherers.cloud.drive_setup --create-drive "AllThingsAgentic"`
+  (creates the department tree, uploads samples, grants the SA, prints
+  `folder_id`s for `environment.yaml`). The adapters live in
+  `gatherers/cloud/` and are the only code that talks to GCP.
+
 ## Michael's build order
 
 1. **Config parsing** (`contracts/config.py::load_config`) — first, because both
@@ -102,9 +153,12 @@ contracts define fake inputs you can hand-write.
 
 ## Demo script
 
-1. Show `config/environment.yaml` (departments, permissions, gatherer caps).
+1. Show `config/environment.yaml` (departments, permissions, gatherer caps,
+   optional cloud `storage:` backends).
 2. Ask a cross-department question ("summarize Q3 engineering spend vs finance
-   budget").
+   budget") — pulls local or GCS/Drive departments through the same gate.
 3. Watch gatherers fan out (log lines), veto checker reject once (rig a strict
    pass), state manager revise, approve.
-4. Open the generated graph viz — answer node linked to every source file.
+4. Optional cloud denial beat: ask something in the locked `hr` department
+   (Drive folder the SA isn't granted) — denied by config AND GCP IAM.
+5. Open the generated graph viz — answer node linked to every source file.

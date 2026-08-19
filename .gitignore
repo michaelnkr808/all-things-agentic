@@ -3,5 +3,6 @@ __pycache__/
 *.pyc
 *.egg-info/
 config/environment.yaml
+config/permissions.yaml
 .env
 out/
