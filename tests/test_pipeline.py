@@ -87,7 +87,7 @@ async def test_renders_when_out_path_is_given(fleet, tmp_path, monkeypatch):
     fleet([True])
     written = {}
 
-    def fake_render(compiled, out_path):
+    def fake_render(compiled, out_path, **kwargs):
         written["path"] = out_path
         out_path.write_text("<html></html>")
         return out_path
@@ -103,7 +103,7 @@ async def test_skips_rendering_when_out_path_is_none(fleet, monkeypatch):
     """viz.py is unimplemented until section 3 — the pipeline must run without it."""
     fleet([True])
 
-    def explode(compiled, out_path):
+    def explode(compiled, out_path, **kwargs):
         raise AssertionError("render_html must not be called when out_path is None")
 
     monkeypatch.setattr(pipeline.viz, "render_html", explode)

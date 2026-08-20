@@ -80,7 +80,7 @@ async def run(
     if out_path is not None:
         out_path = Path(out_path)
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        viz.render_html(compiled, out_path)
+        viz.render_html(compiled, out_path, results=results, verdict=verdict)
         _log(f"wrote {out_path}")
 
     return RunResult(compiled=compiled, verdict=verdict, attempts=attempt + 1)
