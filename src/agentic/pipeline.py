@@ -25,13 +25,24 @@ import asyncio
 import sys
 from pathlib import Path
 
+from pydantic import BaseModel
+
 from agentic.contracts.config import load_config
-from agentic.contracts.messages import RunResult
+from agentic.contracts.messages import CompiledOutput, VetoVerdict
 from agentic.state_manager import manager
 from agentic.veto import checker
 from agentic.client import viz
 
 DEFAULT_OUT = Path("out/graph.html")
+
+
+class RunResult(BaseModel):
+    """What one pipeline run produced. Pipeline -> viz only, so it lives here
+    rather than in contracts/ — it never crosses the Michael/Malik seam."""
+
+    compiled: CompiledOutput
+    verdict: VetoVerdict
+    attempts: int
 
 
 def _log(message: str) -> None:

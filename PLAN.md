@@ -109,6 +109,17 @@ Behavioural changes affecting you:
 
 ## Michael's build order
 
+> **Status 2026-08-19: all five sections DONE**, plus `pipeline.py` run()/CLI and
+> the test suite (77 passing; 3 live-API tests skip without keys). Deviations from
+> the plan below, all deliberate: gather.py reads full files and assesses content
+> (manifest-selection only for oversized departments) instead of filename-picking;
+> the checker also receives the raw `GatherResult`s so it verifies claims against
+> source text; viz.py uses vendored vis-network (`client/vendor/` — keep it
+> committed or rendering breaks). Cloud-backed departments are **not yet routed**
+> by gather.py (deferred — reachable only via the reference gatherer's fallback).
+> Remaining: first live end-to-end run (`python -m agentic.pipeline "..."` — no
+> real model call has executed yet) and the demo rehearsal below.
+
 1. **Config parsing** (`contracts/config.py::load_config`) — first, because both
    of you depend on the parsed config. YAML → pydantic `EnvironmentConfig` with
    validation errors that actually say what's wrong. ~45 min.
