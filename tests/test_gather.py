@@ -325,3 +325,118 @@ async def test_empty_department_returns_an_empty_result(
     result = await gather.gather(_request(), config, perms)
     assert result.files == []
     assert calls == []
+
+
+# --- cloud-backed departments -----------------------------------------------
+
+
+@pytest.fixture
+def cloud_config(config, dept_root):
+    """Finance moved to GCS; its local dir is left empty on purpose."""
+    from agentic.contracts.config import StorageConfig
+
+    for f in (dept_root / "finance").iterdir():
+        f.unlink()
+    config.department("finance").storage = StorageConfig(
+        provider="gcs", bucket="acme-finance", prefix=""
+    )
+    return config
+
+
+def _fake_cloud_files(monkeypatch, files, denied=(), errors=()):
+    """Stand in for Malik's adapter: returns what the backend would have."""
+    from agentic.gatherers import gatherer
+    from agentic.contracts.messages import GatheredFile, GatherResult
+
+    async def fake_gather_files(request, config):
+        return GatherResult(
+            request_id=request.request_id,
+            department=request.department,
+            files=[
+                GatheredFile(
+                    path=path,
+                    department=request.department,
+                    content=content,
+                    relevance_note="matched 2 keyword(s)",  # the note we replace
+                )
+                for path, content in files.items()
+            ],
+            denied=list(denied),
+            errors=list(errors),
+        )
+
+    monkeypatch.setattr(gatherer, "gather_files", fake_gather_files)
+
+
+async def test_storage_backed_department_is_routed_to_the_cloud_adapter(
+    monkeypatch, cloud_config, perms
+):
+    """Without routing, a cloud department globs its empty local dir and returns nothing."""
+    _fake_cloud_files(monkeypatch, {"q3-budget.csv": "team,actual\nengineering,42000\n"})
+    _install(monkeypatch, assess=_assessments(("q3-budget.csv", True)))
+    result = await gather.gather(_request(), cloud_config, perms)
+    assert [f.path for f in result.files] == ["q3-budget.csv"]
+    assert "42000" in result.files[0].content
+
+
+async def test_cloud_files_get_assessed_notes_not_keyword_notes(
+    monkeypatch, cloud_config, perms
+):
+    """A cloud file must be indistinguishable from a local one downstream."""
+    _fake_cloud_files(monkeypatch, {"q3-budget.csv": "actual,42000\n"})
+    _install(monkeypatch, assess=_assessments(("q3-budget.csv", True)))
+    result = await gather.gather(_request(), cloud_config, perms)
+    assert result.files[0].relevance_note == "note for q3-budget.csv"
+    assert "keyword" not in result.files[0].relevance_note
+
+
+async def test_cloud_content_is_regated_before_reaching_the_model(
+    monkeypatch, cloud_config, perms
+):
+    """The adapter gates with permissions.check only; the full gate runs here."""
+    calls = []
+    _fake_cloud_files(monkeypatch, {"q3-budget.csv": "SENSITIVE CLOUD BODY"})
+    _install(monkeypatch, calls=calls)
+
+    # Principal loses the finance grant in the permissions config, while the
+    # environment config still lists the role — check() would let this through.
+    perms.roles["analyst"].departments = []
+    result = await gather.gather(_request(), cloud_config, perms)
+
+    assert calls == []  # no prompt was ever built
+    assert result.files == []
+    assert "q3-budget.csv" in result.denied
+
+
+async def test_cloud_backend_errors_survive_into_the_result(
+    monkeypatch, cloud_config, perms
+):
+    """A listing failure records an error instead of sinking the department."""
+    _fake_cloud_files(monkeypatch, {}, errors=["cloud list failed: 403 Forbidden"])
+    _install(monkeypatch)
+    result = await gather.gather(_request(), cloud_config, perms)
+    assert result.files == []
+    assert any("cloud list failed" in e for e in result.errors)
+
+
+async def test_cloud_assessment_failure_still_returns_the_files(
+    monkeypatch, cloud_config, perms
+):
+    """Same resilience as the local path — the download already happened."""
+
+    async def explode(**kwargs):
+        raise RuntimeError("503 unavailable")
+
+    _fake_cloud_files(monkeypatch, {"q3-budget.csv": "actual,42000\n"})
+    monkeypatch.setattr(
+        gather,
+        "_client",
+        lambda: pytypes.SimpleNamespace(
+            aio=pytypes.SimpleNamespace(
+                models=pytypes.SimpleNamespace(generate_content=explode)
+            )
+        ),
+    )
+    result = await gather.gather(_request(), cloud_config, perms)
+    assert [f.path for f in result.files] == ["q3-budget.csv"]
+    assert any("returned unassessed" in e for e in result.errors)

@@ -126,15 +126,20 @@ def _fake_response(stop_reason, parsed, stop_details=None):
     )
 
 
+def _fake_client(fake_parse):
+    """Mirrors the real client shape: the veto call goes through client.beta."""
+    return types.SimpleNamespace(
+        beta=types.SimpleNamespace(
+            messages=types.SimpleNamespace(parse=fake_parse)
+        )
+    )
+
+
 def _install_fake_client(monkeypatch, response):
     async def fake_parse(**kwargs):
         return response
 
-    monkeypatch.setattr(
-        checker,
-        "client",
-        types.SimpleNamespace(messages=types.SimpleNamespace(parse=fake_parse)),
-    )
+    monkeypatch.setattr(checker, "client", _fake_client(fake_parse))
 
 
 @pytest.mark.parametrize(
@@ -172,11 +177,7 @@ async def test_source_material_reaches_the_model(monkeypatch):
         captured.update(kwargs)
         return _fake_response("end_turn", VetoVerdict(approved=True))
 
-    monkeypatch.setattr(
-        checker,
-        "client",
-        types.SimpleNamespace(messages=types.SimpleNamespace(parse=fake_parse)),
-    )
+    monkeypatch.setattr(checker, "client", _fake_client(fake_parse))
     results = [
         GatherResult(
             request_id="f0",
@@ -191,6 +192,20 @@ async def test_source_material_reaches_the_model(monkeypatch):
     assert "DISTINCTIVE SOURCE BODY" in content
     assert "SOURCE MATERIAL:" in content
     assert "ENVIRONMENT CONFIG:" in content
+
+
+async def test_refusal_fallbacks_are_requested(monkeypatch):
+    """A safety decline should be rescued in-call, not spent from the retry budget."""
+    captured = {}
+
+    async def fake_parse(**kwargs):
+        captured.update(kwargs)
+        return _fake_response("end_turn", VetoVerdict(approved=True))
+
+    monkeypatch.setattr(checker, "client", _fake_client(fake_parse))
+    await checker.check("q", _compiled(), load_config(CONFIG), [])
+    assert captured["fallbacks"] == "default"
+    assert "server-side-fallback-2026-07-01" in captured["betas"]
 
 
 # --- live verdicts ----------------------------------------------------------

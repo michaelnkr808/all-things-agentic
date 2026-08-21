@@ -145,12 +145,19 @@ async def check(
         f"COMPILED ANSWER:\n{compiled.obsidian_markdown}\n\n"
         f"SOURCE MATERIAL:\n{source_material(compiled, results)}"
     )
-    response = await client.messages.parse(
+    response = await client.beta.messages.parse(
         model=config.models.veto,
         max_tokens=4096,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_message}],
         output_format=VetoVerdict,
+        # Safety classifiers can decline a request outright (HTTP 200,
+        # stop_reason "refusal"). Rather than burning a retry on the guard
+        # below, let the API re-run the same request on another model inside
+        # this call. "default" routes by refusal category, so there is no
+        # model list to keep current.
+        betas=["server-side-fallback-2026-07-01"],
+        fallbacks="default",
     )
 
     # Fail closed. `parsed_output` is Optional: a safety refusal, a max_tokens

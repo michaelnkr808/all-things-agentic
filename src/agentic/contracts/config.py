@@ -65,7 +65,10 @@ class ModelConfig(BaseModel):
     client: str = "claude-fable-5"
     state_manager: str = "gemini-3.5-flash"
     gatherer: str = "gemini-3.5-flash"
-    veto: str = "claude-fable-5"  # should check this with malik if we want the veto model to be smart
+    # TEMPORARY: Opus 5 is $5/$25 per MTok vs Fable 5's $10/$50 — halves the cost
+    # of every veto check while iterating. Fable 5 is the more capable model and
+    # this is the adversarial reviewer, so switch back before the demo.
+    veto: str = "claude-opus-5"
 
 
 class VetoConfig(BaseModel):

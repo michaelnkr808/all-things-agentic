@@ -34,7 +34,7 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel
 
-from agentic.contracts.config import EnvironmentConfig
+from agentic.contracts.config import DepartmentConfig, EnvironmentConfig
 from agentic.contracts.messages import GatheredFile, GatherRequest, GatherResult
 from agentic.gatherers import permissions
 
@@ -262,39 +262,17 @@ async def _assess(
     return {a.path: a for a in assessed.assessments if a.path in documents}
 
 
-async def gather(
+async def _assess_and_collect(
+    documents: dict[str, str],
     request: GatherRequest,
     config: EnvironmentConfig,
-    permissions_cfg: permissions.PermissionsConfig | None = None,
+    result: GatherResult,
 ) -> GatherResult:
-    """Read and assess the plausibly-relevant files for one department."""
-    perms = permissions_cfg or _default_permissions()
-    result = GatherResult(request_id=request.request_id, department=request.department)
+    """Assess already-read documents and collect the keepers onto `result`.
 
-    allowed = _gate(request, config, perms, result)
-    if not allowed:
-        return result
-
-    # Selection is a concession to a finite budget, not the default. When the
-    # department fits, every file is read and nothing can be filtered away.
-    if len(allowed) > _limit(request, config) or _total_size(allowed) > READ_ALL_CHARS:
-        try:
-            allowed = await _select(allowed, request, config, result)
-        except Exception as exc:
-            from agentic.gatherers import gatherer
-
-            fallback = await gatherer.gather_files(request, config)
-            fallback.errors.append(
-                f"selection model unavailable ({exc}); used keyword match"
-            )
-            return fallback
-        if not allowed:
-            return result
-
-    documents = _read(allowed, result)
-    if not documents:
-        return result
-
+    Shared by the local and cloud paths so a cloud file carries the same
+    grounded relevance_note a local one does.
+    """
     try:
         assessments = await _assess(documents, request, config)
     except Exception as exc:
@@ -332,3 +310,78 @@ async def gather(
             )
         )
     return result
+
+
+async def _gather_cloud(
+    request: GatherRequest,
+    config: EnvironmentConfig,
+    dept: DepartmentConfig,
+    perms: permissions.PermissionsConfig,
+) -> GatherResult:
+    """GCS/Drive departments: Malik's adapter does the I/O, we do the assessment.
+
+    gatherer.gather_files owns listing, download, size caps, and backend error
+    handling — no reason to reimplement any of it. What it does not do is our
+    assessment pass, so its keyword-rank notes get replaced here and a cloud
+    file ends up indistinguishable from a local one downstream.
+    """
+    from agentic.gatherers import gatherer
+
+    result = await gatherer.gather_files(request, config)
+
+    # That path gates with permissions.check (environment config only); the
+    # full gate also requires the permissions config to grant the department.
+    # Re-apply it before any of this content reaches a model prompt.
+    documents: dict[str, str] = {}
+    for f in result.files:
+        if permissions.allowed(f.path, perms.principal.role, dept, perms):
+            documents[f.path] = f.content
+        else:
+            result.denied.append(f.path)
+    result.files = []
+
+    if not documents:
+        return result
+
+    return await _assess_and_collect(documents, request, config, result)
+
+
+async def gather(
+    request: GatherRequest,
+    config: EnvironmentConfig,
+    permissions_cfg: permissions.PermissionsConfig | None = None,
+) -> GatherResult:
+    """Read and assess the plausibly-relevant files for one department."""
+    perms = permissions_cfg or _default_permissions()
+
+    dept = config.department(request.department)
+    if dept.storage is not None:
+        return await _gather_cloud(request, config, dept, perms)
+
+    result = GatherResult(request_id=request.request_id, department=request.department)
+
+    allowed = _gate(request, config, perms, result)
+    if not allowed:
+        return result
+
+    # Selection is a concession to a finite budget, not the default. When the
+    # department fits, every file is read and nothing can be filtered away.
+    if len(allowed) > _limit(request, config) or _total_size(allowed) > READ_ALL_CHARS:
+        try:
+            allowed = await _select(allowed, request, config, result)
+        except Exception as exc:
+            from agentic.gatherers import gatherer
+
+            fallback = await gatherer.gather_files(request, config)
+            fallback.errors.append(
+                f"selection model unavailable ({exc}); used keyword match"
+            )
+            return fallback
+        if not allowed:
+            return result
+
+    documents = _read(allowed, result)
+    if not documents:
+        return result
+
+    return await _assess_and_collect(documents, request, config, result)
