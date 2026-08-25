@@ -11,8 +11,10 @@ Flow:
 
 from __future__ import annotations
 
+from typing import Callable
+
 from agentic.contracts.config import EnvironmentConfig
-from agentic.contracts.messages import CompiledOutput, GatherResult, VetoVerdict
+from agentic.contracts.messages import CompiledOutput, GatherRequest, GatherResult, VetoVerdict
 from agentic.gatherers import permissions
 from agentic.gatherers.spawn import spawn_gatherers
 from agentic.state_manager import output
@@ -40,12 +42,24 @@ def _gathered_files(results: list[GatherResult]):
     return [f for r in results for f in r.files]
 
 
-async def plan_and_gather(prompt: str, config: EnvironmentConfig) -> list[GatherResult]:
-    """Parse the prompt, pick departments, spawn gatherers (see spawn.py)."""
-    perms = permissions.load_permissions_config()
+async def plan_and_gather(
+    prompt: str,
+    config: EnvironmentConfig,
+    requester_role: str | None = None,
+    on_result: Callable[[GatherRequest, GatherResult], None] | None = None,
+) -> list[GatherResult]:
+    """Parse the prompt, pick departments, spawn gatherers (see spawn.py).
+
+    ``requester_role`` overrides the YAML principal with an authenticated
+    role (server auth — provisional, Malik); it is validated fail-closed by
+    permissions.load_permissions_config. Every permission gate in this run
+    reads the same overridden config. ``on_result`` fires per gatherer once
+    the spawn gate has stripped it (see spawn.spawn_gatherers).
+    """
+    perms = permissions.load_permissions_config(principal_role=requester_role)
     plan = await run_planner(prompt, config)
     requests = plan_to_requests(plan, config, requester_role=perms.principal.role)
-    return await spawn_gatherers(requests, config, permissions_cfg=perms)
+    return await spawn_gatherers(requests, config, permissions_cfg=perms, on_result=on_result)
 
 
 async def synthesize(

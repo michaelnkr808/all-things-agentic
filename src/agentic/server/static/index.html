@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>agentic fleet — reference UI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; background: #12151c; color: #d6dae2; }
+  h1 { font-size: 1.2rem; } code { background: #1d2230; padding: .1em .35em; border-radius: 4px; }
+  input, button { font: inherit; padding: .45rem .7rem; border-radius: 6px; border: 1px solid #39415a; background: #1a1f2b; color: inherit; }
+  button { cursor: pointer; background: #2d4a8a; border-color: #2d4a8a; }
+  button:disabled { opacity: .5; cursor: default; }
+  form { display: flex; gap: .5rem; margin: .5rem 0; }
+  #who { float: right; }
+  #feed { list-style: none; padding: 0; font-size: .85rem; max-height: 300px; overflow-y: auto; }
+  #feed li { padding: .25rem 0; border-bottom: 1px solid #222839; white-space: pre-wrap; }
+  #answer { background: #171b26; border: 1px solid #262d40; border-radius: 8px; padding: 1rem; white-space: pre-wrap; display: none; }
+  .err { color: #ff8080; } .ok { color: #7fd18c; }
+</style>
+</head>
+<body>
+<span id="who"></span>
+<h1>agentic fleet <small style="font-weight:normal">(reference UI — replace freely)</small></h1>
+
+<form id="login">
+  <input id="username" placeholder="username" autocomplete="username">
+  <input id="password" type="password" placeholder="password" autocomplete="current-password">
+  <button>log in</button>
+</form>
+
+<form id="ask" hidden>
+  <input id="prompt" placeholder="e.g. summarize Q3 engineering spend vs finance budget" style="flex:1">
+  <button id="runbtn">run</button>
+</form>
+
+<ul id="feed"></ul>
+<pre id="answer"></pre>
+<p id="vizlink"></p>
+
+<script>
+"use strict";
+let token = null, role = null;
+const $ = (id) => document.getElementById(id);
+
+function log(kind, text) {
+  const li = document.createElement("li");
+  if (kind === "error") li.className = "err";
+  if (kind === "ok") li.className = "ok";
+  li.textContent = text;
+  $("feed").prepend(li);
+}
+
+$("login").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const res = await fetch("/api/login", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({username: $("username").value, password: $("password").value}),
+  });
+  if (!res.ok) return log("error", `login failed: ${res.status} ${(await res.json()).detail ?? ""}`);
+  const data = await res.json();
+  token = data.access_token; role = data.role;
+  $("login").hidden = true; $("ask").hidden = false;
+  $("who").textContent = `${data.username} [${role}]`;
+  log("ok", `logged in as ${data.username} (${role})`);
+});
+
+// EventSource cannot POST, so parse the SSE stream from fetch manually.
+$("ask").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const prompt = $("prompt").value.trim();
+  if (!prompt || !token) return;
+  $("runbtn").disabled = true; $("answer").style.display = "none";
+  const res = await fetch("/api/run", {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "Authorization": "Bearer " + token},
+    body: JSON.stringify({prompt}),
+  });
+  if (!res.ok) { $("runbtn").disabled = false; return log("error", `run failed: ${res.status} ${(await res.json()).detail ?? ""}`); }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const {done, value} = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, {stream: true});
+    let idx;
+    while ((idx = buf.indexOf("\n\n")) >= 0) {
+      handleFrame(buf.slice(0, idx));
+      buf = buf.slice(idx + 2);
+    }
+  }
+  $("runbtn").disabled = false;
+});
+
+function handleFrame(frame) {
+  let event = "message", data = "";
+  for (const line of frame.split("\n")) {
+    if (line.startsWith("event: ")) event = line.slice(7);
+    else if (line.startsWith("data: ")) data += line.slice(6);
+  }
+  if (!data) return;
+  const p = JSON.parse(data);
+  switch (event) {
+    case "run_started": log("", `▶ ${p.prompt} (as ${p.role})`); break;
+    case "gatherer_result": log(p.denied.length ? "error" : "", `  ${p.department}: ${p.kept} kept, ${p.denied.length} denied${p.denied.length ? " [" + p.denied.join(", ") + "]" : ""}`); break;
+    case "gathered": log("ok", `■ gathered ${p.kept} file(s), ${p.denied} denied across ${p.gatherers} gatherer(s)`); break;
+    case "synthesized": log("", `  synthesized (revision ${p.revision})`); break;
+    case "veto": log(p.approved ? "ok" : "error", `  veto check ${p.attempt}: ${p.approved ? "APPROVED" : "VETOED"}${p.reasons.length ? " — " + p.reasons.join("; ") : ""}`); break;
+    case "revising": log("", `  revising per checker notes…`); break;
+    case "run_state":
+      $("answer").textContent = p.obsidian_markdown;
+      $("answer").style.display = "block";
+      $("vizlink").innerHTML = `<a href="${p.viz_url}" target="_blank">open graph viz</a>` +
+        (p.approved ? "" : ` <span class="err">(shipped UNAPPROVED after ${p.attempts} checks)</span>`);
+      log(p.approved ? "ok" : "error", p.approved ? `✔ approved after ${p.attempts} check(s)` : `✖ shipped UNAPPROVED after ${p.attempts} check(s)`);
+      break;
+    case "error": log("error", `✖ ${p.message}`); break;
+  }
+}
+</script>
+</body>
+</html>

@@ -1,8 +1,10 @@
 import pytest
 from pydantic import ValidationError
+from types import SimpleNamespace
 
 from agentic.contracts.config import AgentType, load_config
 from agentic.contracts.messages import GatherRequest
+from agentic.state_manager import manager_planning
 from agentic.state_manager.manager_planning import build_plan_schema, plan_to_requests
 
 
@@ -43,3 +45,19 @@ def test_plan_to_requests():
     assert request.query == "find the q3 budget"
     assert request.max_files == config.agent_types[AgentType.FILE_GATHERER].max_files
     assert request.requester_role == "admin"
+
+
+async def test_run_planner_empty_response_raises_clearly(monkeypatch):
+    """A keyless/blocked model call used to die as 'NoneType has no parts'."""
+    config = load_config("config/environment.example.yaml")
+
+    class FakeRunner:
+        def __init__(self, **kwargs):
+            pass
+
+        async def run_async(self, **kwargs):
+            yield SimpleNamespace(is_final_response=lambda: True, content=None)
+
+    monkeypatch.setattr(manager_planning, "Runner", FakeRunner)
+    with pytest.raises(RuntimeError, match="GOOGLE_API_KEY"):
+        await manager_planning.run_planner("q", config)

@@ -107,6 +107,83 @@ Behavioural changes affecting you:
   `folder_id`s for `environment.yaml`). The adapters live in
   `gatherers/cloud/` and are the only code that talks to GCP.
 
+## AUTH + BACKEND (new, provisional — Malik)
+
+The CLI is no longer the only entry point. `src/agentic/server/` adds a
+FastAPI service with login + SSE streaming over the same pipeline.
+
+| Piece | Owner | Status |
+|---|---|---|
+| `server/auth.py` — PBKDF2 password verify, JWT issue/verify, users store | Malik | provisional |
+| `config/users.example.yaml` + `scripts/hash_password.py` | Malik | provisional |
+| `server/app.py` (`POST /api/login`, `POST /api/run` SSE) · `schemas.py` · `sse.py` | Malik | provisional |
+| `server/runs.py` — run orchestration | Malik | **provisional, see diff 2 below** |
+| `permissions.load_permissions_config(..., principal_role=)` override | Malik | lands in permissions gate, fail-closed |
+| `manager.plan_and_gather(..., requester_role=)` threading | Malik | |
+| `gather.gather(request, config, permissions_cfg=None)` | ⚠️ **Michael's file** | **flagged diff 1 below** |
+| `pipeline.run(requester_role=None, emit=None)` | ⚠️ **Michael's file** | **flagged diff 2 below** |
+
+How auth works: login checks `config/users.yaml` (PBKDF2 hashes) and that
+the user's role exists in `config/permissions.yaml` roles — fail closed.
+A JWT `{sub, role}` comes back stateless; `/api/run` verifies it and the
+role becomes the run's principal for EVERY permission gate (spawn gate
+still re-verifies; nothing trusts request bodies or model output).
+
+SSE event contract (what the frontend builds against): `run_started`,
+`gatherer_result`, `gathered`, `synthesized`, `veto`, `revising`,
+`run_state` (final: markdown, sources, verdict, attempts, `viz_url`),
+`error`.
+
+### ⚠️ FOR MICHAEL — two flagged diffs awaiting you
+
+Both are strictly additive kwargs; until you land them the demo still
+works (the spawn gate enforces the authenticated role regardless), but:
+
+**Diff 1 — gather.py:** without your change, the *gatherer's* pre-gate
+reads the YAML principal instead of the authenticated one. With
+`principal: admin` in permissions.yaml an analyst run's gatherer briefly
+touches locked content inside LLM context before the spawn gate strips
+it — outputs stay correct, but scope should never even reach the model.
+Please land:
+
+```python
+# gather.py — additive default, behaviour unchanged for existing callers
+async def gather(request, config, permissions_cfg=None):
+    ...
+    perms = permissions_cfg or permissions.load_permissions_config()
+```
+(spawn passes its already-overridden config down; manager wires it.)
+
+**Diff 2 — pipeline.run():** the server currently carries a REPLICA of
+your veto retry loop in `server/runs.py` because we agreed not to touch
+your files. When you land this, I delete the replica and call your
+`run()` directly — event names stay identical:
+
+```python
+# pipeline.py — additive defaults, CLI path identical
+async def run(prompt, config_path="config/environment.yaml",
+              out_path=DEFAULT_OUT, requester_role=None, emit=None):
+    # emit(event_name, payload_dict) fires wherever _log() does today;
+    # None keeps stderr-only logging.
+```
+
+### Server setup
+
+```bash
+cp config/users.example.yaml config/users.yaml   # then replace demo hashes:
+python scripts/hash_password.py                  # prompts securely
+export AGENTIC_JWT_SECRET=$(python -c "import secrets;print(secrets.token_hex(32))")
+AGENTIC_JWT_SECRET=$AGENTIC_JWT_SECRET .venv/bin/uvicorn agentic.server.app:create_app --factory --port 8000
+```
+
+Optional env: `AGENTIC_CONFIG_PATH` (default `config/environment.yaml`),
+`AGENTIC_USERS_PATH`, `AGENTIC_GRAPHS_DIR`, `AGENTIC_JWT_TTL_HOURS`
+(default 12), `AGENTIC_DEV_CORS=1` (dev frontend on another origin).
+
+Demo beats: log in as alice (analyst) vs root (admin), ask about HR comp
+bands — analyst sees live denials in the timeline, admin gets the answer;
+graph viz link lands with the final event.
+
 ## Michael's build order
 
 > **Status 2026-08-19: all five sections DONE**, plus `pipeline.py` run()/CLI and

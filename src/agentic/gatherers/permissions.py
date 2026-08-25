@@ -50,14 +50,26 @@ class PermissionsConfig(BaseModel):
         return access.departments if access else []
 
 
-def load_permissions_config(path: str | Path = DEFAULT_PERMISSIONS_CONFIG) -> PermissionsConfig:
+def load_permissions_config(
+    path: str | Path | None = None,
+    principal_role: str | None = None,
+) -> PermissionsConfig:
     """Parse and validate config/permissions.yaml.
 
     Fails fast (ConfigError) if the file is missing, is invalid YAML,
     fails schema validation, or names a principal role that is not defined
     under ``roles``. Failing closed is the point: an unparseable
     permissions config must never widen gatherer access.
+
+    ``principal_role`` overrides the YAML principal with an authenticated
+    identity (server auth — provisional, Malik). The override is validated
+    against ``roles`` exactly like the YAML principal: an unknown role
+    raises ConfigError instead of widening access. Every consumer that
+    re-loads this config for the same session must pass the same override,
+    or the gates disagree about who is asking.
     """
+    if path is None:
+        path = DEFAULT_PERMISSIONS_CONFIG
     try:
         with open(path, "r") as f:
             raw = yaml.safe_load(f)
@@ -79,6 +91,16 @@ def load_permissions_config(path: str | Path = DEFAULT_PERMISSIONS_CONFIG) -> Pe
         raise ConfigError(
             f"Invalid permissions config in {path}: principal role "
             f"{cfg.principal.role!r} is not defined under 'roles'."
+        )
+
+    if principal_role is not None and principal_role != cfg.principal.role:
+        if not cfg.role_known(principal_role):
+            raise ConfigError(
+                f"Requested principal role {principal_role!r} is not defined "
+                f"under 'roles' in {path} — denying (fail closed)."
+            )
+        cfg = cfg.model_copy(
+            update={"principal": Principal(role=principal_role)}
         )
 
     return cfg

@@ -97,6 +97,12 @@ async def run_planner(prompt: str, config: EnvironmentConfig) -> BaseModel:
         new_message=types.Content(role="user", parts=[types.Part(text=prompt)]),
     ):
         if event.is_final_response():
+            if event.content is None or not event.content.parts:
+                raise RuntimeError(
+                    f"planner got no content back from {config.models.state_manager} "
+                    f"— usually a missing GOOGLE_API_KEY, or the response was "
+                    f"blocked/unavailable"
+                )
             result_text = event.content.parts[0].text
 
     plan = Plan.model_validate_json(_strip_code_fences(result_text))

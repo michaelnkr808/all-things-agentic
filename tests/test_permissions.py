@@ -134,6 +134,38 @@ def test_load_permissions_config_undefined_principal_role(tmp_path):
         load_permissions_config(p)
 
 
+def test_load_permissions_config_principal_role_override(tmp_path):
+    p = tmp_path / "permissions.yaml"
+    p.write_text(
+        "principal:\n  role: analyst\n"
+        "roles:\n  analyst:\n    departments: [engineering]\n"
+        "  admin:\n    departments: [engineering, hr]\n"
+    )
+    cfg = load_permissions_config(p, principal_role="admin")
+    assert cfg.principal.role == "admin"
+    assert cfg.departments_for_role("admin") == ["engineering", "hr"]
+
+
+def test_load_permissions_config_override_to_same_role_is_noop(tmp_path):
+    p = tmp_path / "permissions.yaml"
+    p.write_text(
+        "principal:\n  role: analyst\n"
+        "roles:\n  analyst:\n    departments: [engineering]\n"
+    )
+    cfg = load_permissions_config(p, principal_role="analyst")
+    assert cfg.principal.role == "analyst"
+
+
+def test_load_permissions_config_unknown_override_denies(tmp_path):
+    p = tmp_path / "permissions.yaml"
+    p.write_text(
+        "principal:\n  role: analyst\n"
+        "roles:\n  analyst:\n    departments: [engineering]\n"
+    )
+    with pytest.raises(ConfigError, match="fail closed"):
+        load_permissions_config(p, principal_role="ghost-role")
+
+
 def _cloud_dept(provider: str = "gcs") -> DepartmentConfig:
     return DepartmentConfig(
         name="eng",

@@ -43,6 +43,12 @@ async def run_synthesizer(original_prompt: str, dumped_state: str, models: Model
         new_message=types.Content(role="user", parts=[types.Part(text=message)]),
     ):
         if event.is_final_response():
+            if event.content is None or not event.content.parts:
+                raise RuntimeError(
+                    f"synthesizer got no content back from {models.state_manager} "
+                    f"— usually a missing GOOGLE_API_KEY, or the response was "
+                    f"blocked/unavailable"
+                )
             result_text = event.content.parts[0].text
 
     return result_text

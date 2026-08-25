@@ -11,6 +11,9 @@ dependencies = [
     "google-cloud-storage",  # GCS backend for cloud-backed departments
     "google-api-python-client",  # Google Drive backend
     "anthropic>=0.40",     # client + veto checker
+    "fastapi>=0.110",      # SSE backend (provisional — Malik)
+    "uvicorn[standard]>=0.29",  # ASGI server for the backend
+    "pyjwt>=2.8",          # auth tokens (provisional — Malik)
 ]
 
 [project.optional-dependencies]

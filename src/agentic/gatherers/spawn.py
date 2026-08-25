@@ -16,6 +16,7 @@ claims; a request that disagrees is denied entirely (fail closed).
 from __future__ import annotations
 
 import asyncio
+from typing import Callable
 
 from agentic.contracts.config import EnvironmentConfig
 from agentic.contracts.messages import GatherRequest, GatherResult
@@ -50,8 +51,14 @@ async def spawn_gatherers(
     requests: list[GatherRequest],
     config: EnvironmentConfig,
     permissions_cfg: permissions.PermissionsConfig | None = None,
+    on_result: Callable[[GatherRequest, GatherResult], None] | None = None,
 ) -> list[GatherResult]:
-    """Fan out one gatherer per request, capped by config.gatherers.max_gatherers."""
+    """Fan out one gatherer per request, capped by config.gatherers.max_gatherers.
+
+    ``on_result`` (optional, sync) fires after the gate has stripped each
+    result, so observers (server SSE — provisional, Malik) see the final
+    kept/denied counts. It must not mutate the result.
+    """
     perms = permissions_cfg or permissions.load_permissions_config()
     role = perms.principal.role
 
@@ -65,5 +72,7 @@ async def spawn_gatherers(
 
     for request, result in zip(requests, results):
         _enforce(request, result, config, perms, role)
+        if on_result is not None:
+            on_result(request, result)
 
     return results
