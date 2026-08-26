@@ -17,7 +17,20 @@ from agentic.contracts.messages import CompiledOutput, GatherResult, VetoVerdict
 
 import anthropic
 
-client = anthropic.AsyncAnthropic()
+#: Built on first use, not at import. AsyncAnthropic() reads ANTHROPIC_API_KEY
+#: when it is constructed, and importing this module happens before an entry
+#: point has had a chance to load `.env` — constructing it here meant every run
+#: died with "could not resolve authentication method" no matter what the
+#: environment held by the time check() was called. Tests still monkeypatch
+#: `checker.client` directly; a fake installed there is returned as-is.
+client: anthropic.AsyncAnthropic | None = None
+
+
+def _client() -> anthropic.AsyncAnthropic:
+    global client
+    if client is None:
+        client = anthropic.AsyncAnthropic()
+    return client
 
 # Per-file cap on source text sent to the checker. Gatherers over-gather by
 # design, so without a cap one verbose file can dominate the request.
@@ -145,7 +158,7 @@ async def check(
         f"COMPILED ANSWER:\n{compiled.obsidian_markdown}\n\n"
         f"SOURCE MATERIAL:\n{source_material(compiled, results)}"
     )
-    response = await client.beta.messages.parse(
+    response = await _client().beta.messages.parse(
         model=config.models.veto,
         max_tokens=4096,
         system=SYSTEM_PROMPT,

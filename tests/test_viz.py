@@ -155,3 +155,32 @@ def test_embedded_content_cannot_close_the_script_tag(tmp_path):
         hostile, tmp_path / "hostile.html", results=results
     ).read_text(encoding="utf-8")
     assert "</script><script>alert(1)" not in page  # escaped to <\/script>...
+
+
+def test_build_graph_is_public_and_shared_with_the_live_frontend():
+    """The server streams this structure; render_html embeds the same one."""
+    graph = viz.build_graph(_compiled(), _results(), VetoVerdict(approved=True))
+
+    assert set(graph) == {"nodes", "edges", "meta"}
+    kinds = {n["kind"] for n in graph["nodes"]}
+    assert kinds == {"answer", "department", "file", "denied"}
+
+    # Node ids are the contract the live graph builds against while a run is
+    # still streaming, so it can update in place instead of relayout.
+    ids = {n["id"] for n in graph["nodes"]}
+    assert "answer" in ids
+    assert "dept:engineering" in ids
+    assert "file:engineering/roadmap.md" in ids
+    assert "denied:hr/comp-bands.md" in ids
+
+    answer = next(n for n in graph["nodes"] if n["kind"] == "answer")
+    assert "Spend is on track" in answer["detail"]  # prose, for the answer pane
+    assert "[[" not in answer["detail"]
+
+    assert graph["meta"]["status"] == "approved"
+
+
+def test_build_graph_works_without_results_or_verdict():
+    graph = viz.build_graph(_compiled())
+    assert graph["meta"]["status"] is None
+    assert any(n["id"] == "file:engineering/roadmap.md" for n in graph["nodes"])

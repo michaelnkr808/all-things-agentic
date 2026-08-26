@@ -23,14 +23,25 @@ from agentic.state_manager.manager_synthesizer import run_synthesizer
 
 
 def _dump_results(results: list[GatherResult]) -> str:
-    """Serialize GatherResults into a plain-text brief for the synthesizer."""
+    """Serialize GatherResults into a plain-text brief for the synthesizer.
+
+    Each file is headed by the exact ``[[department/path]]`` token the answer
+    should cite it with. The synthesizer sees the department only as a section
+    heading, so asking it to compose the prefix itself invites half-formed
+    citations like ``[[q3-budget.csv]]`` — which carry no department and break
+    the graph's file→department edge. Giving it the finished token to copy
+    removes the composition step entirely.
+    """
     sections = []
     for result in results:
         if not (result.files or result.denied or result.errors):
             continue
         sections.append(f"## {result.department} (request {result.request_id})")
         for file in result.files:
-            sections.append(f"\n### {file.path} — {file.relevance_note}\n{file.content}")
+            citation = f"[[{file.department}/{file.path}]]"
+            sections.append(
+                f"\n### {citation} — {file.relevance_note}\n{file.content}"
+            )
         if result.denied:
             sections.append(f"\n(denied by permissions: {', '.join(result.denied)})")
         if result.errors:
@@ -47,6 +58,7 @@ async def plan_and_gather(
     config: EnvironmentConfig,
     requester_role: str | None = None,
     on_result: Callable[[GatherRequest, GatherResult], None] | None = None,
+    on_progress: Callable[[str, dict], None] | None = None,
 ) -> list[GatherResult]:
     """Parse the prompt, pick departments, spawn gatherers (see spawn.py).
 
@@ -54,12 +66,19 @@ async def plan_and_gather(
     role (server auth — provisional, Malik); it is validated fail-closed by
     permissions.load_permissions_config. Every permission gate in this run
     reads the same overridden config. ``on_result`` fires per gatherer once
-    the spawn gate has stripped it (see spawn.spawn_gatherers).
+    the spawn gate has stripped it (see spawn.spawn_gatherers), and
+    ``on_progress`` narrates each gatherer's work file by file.
     """
     perms = permissions.load_permissions_config(principal_role=requester_role)
     plan = await run_planner(prompt, config)
     requests = plan_to_requests(plan, config, requester_role=perms.principal.role)
-    return await spawn_gatherers(requests, config, permissions_cfg=perms, on_result=on_result)
+    return await spawn_gatherers(
+        requests,
+        config,
+        permissions_cfg=perms,
+        on_result=on_result,
+        on_progress=on_progress,
+    )
 
 
 async def synthesize(

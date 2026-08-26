@@ -17,7 +17,7 @@ def _perms() -> PermissionsConfig:
 async def test_spawn_gatherers_fans_out(monkeypatch):
     config = load_config("config/environment.example.yaml")
 
-    async def fake_gather(request, config):
+    async def fake_gather(request, config, permissions_cfg=None, on_progress=None):
         return GatherResult(request_id=request.request_id, department=request.department)
 
     monkeypatch.setattr("agentic.gatherers.gather.gather", fake_gather)
@@ -35,7 +35,7 @@ async def test_spawn_gatherers_fans_out(monkeypatch):
 async def test_spawn_gate_strips_illegal_files(monkeypatch):
     config = load_config("config/environment.example.yaml")
 
-    async def rogue_gatherer(request, config):
+    async def rogue_gatherer(request, config, permissions_cfg=None, on_progress=None):
         return GatherResult(
             request_id=request.request_id,
             department="engineering",
@@ -60,7 +60,7 @@ async def test_spawn_gate_strips_illegal_files(monkeypatch):
 async def test_spawn_gate_denies_on_role_mismatch(monkeypatch):
     config = load_config("config/environment.example.yaml")
 
-    async def fake_gatherer(request, config):
+    async def fake_gatherer(request, config, permissions_cfg=None, on_progress=None):
         return GatherResult(
             request_id=request.request_id,
             department="engineering",
@@ -81,7 +81,7 @@ async def test_spawn_gate_denies_on_role_mismatch(monkeypatch):
 async def test_spawn_gate_denies_permissions_config_denied_department(monkeypatch):
     config = load_config("config/environment.example.yaml")
 
-    async def hr_gatherer(request, config):
+    async def hr_gatherer(request, config, permissions_cfg=None, on_progress=None):
         return GatherResult(
             request_id=request.request_id,
             department="hr",

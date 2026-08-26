@@ -169,6 +169,27 @@ def check(path: str, requester_role: str, department: DepartmentConfig) -> bool:
     return _path_within(Path(department.path).resolve(), path)
 
 
+def department_allowed(
+    role: str,
+    department: DepartmentConfig,
+    permissions_cfg: PermissionsConfig,
+) -> bool:
+    """True if `role` may read this department *at all*, ignoring any path.
+
+    The department half of the AND gate: the permissions config must know
+    the role and grant it this department, and the environment config must
+    list the role in the department's allowed_roles. Path containment is a
+    per-file question and is deliberately not asked here — this answers
+    "can this principal see into this department", which is what the fleet
+    view needs before a single file exists.
+    """
+    if not permissions_cfg.role_known(role):
+        return False
+    if department.name not in permissions_cfg.departments_for_role(role):
+        return False
+    return role in department.allowed_roles
+
+
 def allowed(
     path: str,
     role: str,
@@ -180,8 +201,6 @@ def allowed(
     Any single disagreement denies (fails closed). This is what the
     spawner applies to every file a gatherer returns.
     """
-    if not permissions_cfg.role_known(role):
-        return False
-    if department.name not in permissions_cfg.departments_for_role(role):
+    if not department_allowed(role, department, permissions_cfg):
         return False
     return check(path, role, department)

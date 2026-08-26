@@ -440,3 +440,62 @@ async def test_cloud_assessment_failure_still_returns_the_files(
     result = await gather.gather(_request(), cloud_config, perms)
     assert [f.path for f in result.files] == ["q3-budget.csv"]
     assert any("returned unassessed" in e for e in result.errors)
+
+
+async def test_on_progress_narrates_the_gatherers_work(monkeypatch, config, perms):
+    """The live animation's data source: denials first, then reads, then notes."""
+    _install(
+        monkeypatch,
+        assess=_assessments(("budget_2026_final.csv", True), ("offsite-menu.md", False)),
+    )
+
+    events = []
+    result = await gather.gather(
+        _request(),
+        config,
+        perms,
+        on_progress=lambda name, payload: events.append((name, payload)),
+    )
+
+    names = [n for n, _ in events]
+    assert names[0] == "scanning"
+    assert "file_read" in names
+    assert "assessing" in names
+    assert "file_assessed" in names
+    # Every payload names its department: gatherers interleave in the stream.
+    assert all(p["department"] == "finance" for _, p in events)
+
+    read = [p["path"] for n, p in events if n == "file_read"]
+    assert sorted(read) == ["budget_2026_final.csv", "offsite-menu.md"]
+
+    assessed = {p["path"]: p["relevant"] for n, p in events if n == "file_assessed"}
+    assert assessed == {"budget_2026_final.csv": True, "offsite-menu.md": False}
+
+    # Narration must not change the outcome.
+    assert [f.path for f in result.files] == ["budget_2026_final.csv"]
+
+
+async def test_denials_are_narrated_before_any_file_is_opened(monkeypatch, config, perms):
+    """Locked nodes must be able to appear first — that is the whole point."""
+    events = []
+    await gather.gather(
+        _request(department="hr"),
+        config,
+        perms,
+        on_progress=lambda name, payload: events.append((name, payload)),
+    )
+    names = [n for n, _ in events]
+    assert "file_denied" in names
+    assert "file_read" not in names  # denied department: nothing was opened
+    denied = [p["path"] for n, p in events if n == "file_denied"]
+    assert denied == ["comp-bands.md"]
+
+
+async def test_gather_without_on_progress_is_unchanged(monkeypatch, config, perms):
+    """The CLI passes nothing; the default must stay a silent no-op."""
+    _install(
+        monkeypatch,
+        assess=_assessments(("budget_2026_final.csv", True), ("offsite-menu.md", False)),
+    )
+    result = await gather.gather(_request(), config, perms)
+    assert [f.path for f in result.files] == ["budget_2026_final.csv"]

@@ -37,7 +37,7 @@ def _install_fakes(monkeypatch, files_by_dept):
     async def fake_planner(prompt, config):
         return _plan()
 
-    async def fake_gather(request, config):
+    async def fake_gather(request, config, permissions_cfg=None, on_progress=None):
         return GatherResult(
             request_id=request.request_id,
             department=request.department,
@@ -78,7 +78,7 @@ async def test_unknown_role_raises_before_any_gather(monkeypatch):
     config = load_config(CONFIG)
     seen = []
 
-    async def explode(request, config):
+    async def explode(request, config, permissions_cfg=None, on_progress=None):
         seen.append(request.department)
         raise AssertionError("no gatherer may run for an unknown role")
 
@@ -118,3 +118,28 @@ async def test_yaml_principal_still_used_without_override(monkeypatch):
         assert len(by_dept["hr"].files) == 1
     else:
         assert by_dept["hr"].files == []
+
+
+async def test_authenticated_role_reaches_the_gatherers_own_gate(monkeypatch):
+    """The spawn gate is not the only gate that must see the JWT role.
+
+    spawn.spawn_gatherers passes its overridden PermissionsConfig down into
+    gather.gather. Without it the gatherer's pre-read gate falls back to the
+    YAML principal, so an analyst run would pull admin-scope content into the
+    model's context before the spawn gate strips it from the result.
+    """
+    config = load_config(CONFIG)
+    seen: list = []
+
+    async def spy_gather(request, config, permissions_cfg=None, on_progress=None):
+        seen.append(permissions_cfg)
+        return GatherResult(request_id=request.request_id, department=request.department)
+
+    _install_fakes(monkeypatch, {})
+    monkeypatch.setattr("agentic.gatherers.gather.gather", spy_gather)
+
+    await manager.plan_and_gather("q", config, requester_role="analyst")
+
+    assert seen, "no gatherer ran"
+    assert all(p is not None for p in seen), "gatherer fell back to the YAML principal"
+    assert {p.principal.role for p in seen} == {"analyst"}

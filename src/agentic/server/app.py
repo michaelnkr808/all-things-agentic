@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import uuid
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -32,13 +33,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from agentic.client import viz
 from agentic.contracts.config import ConfigError
+from agentic.env import load_env
 from agentic.gatherers import permissions
 from agentic.server import auth, runs
-from agentic.server.schemas import LoginRequest, RunRequest, TokenResponse
+from agentic.server.schemas import FleetResponse, LoginRequest, RunRequest, TokenResponse
 from agentic.server.sse import SseQueue
 
 STATIC_DIR = Path(__file__).parent / "static"
+# The graph library is vendored beside viz.py; the standalone pages inline it,
+# the app loads it once from here and lets the browser cache it.
+VENDOR_DIR = Path(viz.__file__).parent / "vendor"
 
 _SSE_HEADERS = {
     "Cache-Control": "no-cache",
@@ -47,6 +53,11 @@ _SSE_HEADERS = {
 }
 
 _background_tasks: set[asyncio.Task] = set()
+
+#: run_id -> (task, username). Lets a client cancel its own in-flight run.
+#: The username is stored so cancellation is authorized against the JWT:
+#: knowing a run_id must not be enough to kill someone else's run.
+_active_runs: dict[str, tuple[asyncio.Task, str]] = {}
 
 
 def _env_path(env_var: str, default: str) -> str:
@@ -70,6 +81,8 @@ async def current_principal(
 
 
 def create_app() -> FastAPI:
+    load_env()  # .env in the repo root supplies the model API keys
+
     app = FastAPI(
         title="all-things-agentic backend",
         version="0.1.0",
@@ -115,37 +128,99 @@ def create_app() -> FastAPI:
             role=principal.role,
         )
 
+    @app.get("/api/fleet", response_model=FleetResponse)
+    def fleet(
+        principal: auth.TokenPrincipal = Depends(current_principal),
+    ) -> FleetResponse:
+        """The fleet as this principal sees it: which departments are readable,
+        which are cloud-backed, which models are wired. No model calls."""
+        try:
+            config = runs.load_config(
+                _env_path("AGENTIC_CONFIG_PATH", runs.DEFAULT_CONFIG_PATH)
+            )
+            return runs.build_fleet(principal.role, config)
+        except ConfigError as e:
+            raise HTTPException(503, detail=str(e)) from None
+
     @app.post("/api/run")
     async def run(
         body: RunRequest,
         principal: auth.TokenPrincipal = Depends(current_principal),
     ) -> StreamingResponse:
+        config_path = _env_path("AGENTIC_CONFIG_PATH", runs.DEFAULT_CONFIG_PATH)
+        # Load and validate overrides *before* streaming: a rejected knob should
+        # be a 4xx the client can show, not an error event mid-stream.
+        try:
+            config = runs.apply_overrides(
+                runs.load_config(config_path),
+                max_gatherers=body.max_gatherers,
+                max_retries=body.max_retries,
+                veto_model=body.veto_model,
+                departments=body.departments,
+            )
+        except runs.OverrideError as e:
+            raise HTTPException(400, detail=str(e)) from None
+        except ConfigError as e:
+            raise HTTPException(503, detail=str(e)) from None
+
         sse = SseQueue()
+        run_id = uuid.uuid4().hex
+
+        def emit(event: str, payload: dict) -> None:
+            # The client learns its run_id from the first event, which is all
+            # it needs to cancel — there is nothing to cancel before then.
+            if event == "run_started":
+                payload = {**payload, "run_id": run_id}
+            sse.emit(event, payload)
 
         async def runner() -> None:
             try:
                 await runs.execute_run(
                     body.prompt,
                     principal.role,
-                    emit=sse.emit,
-                    config_path=_env_path("AGENTIC_CONFIG_PATH", runs.DEFAULT_CONFIG_PATH),
+                    emit=emit,
+                    config_path=config_path,
+                    config=config,
                 )
             except asyncio.CancelledError:
+                sse.emit("error", {"message": "run cancelled"})
                 raise
             except Exception:
                 pass  # execute_run already emitted `error`; nothing left to stream
             finally:
+                _active_runs.pop(run_id, None)
                 sse.close()
 
         # Referenced so the running task is never GC'd mid-stream.
         task = asyncio.create_task(runner())
         _background_tasks.add(task)
         task.add_done_callback(_background_tasks.discard)
+        _active_runs[run_id] = (task, principal.username)
         return StreamingResponse(
             sse.stream(),
             media_type="text/event-stream",
             headers=_SSE_HEADERS,
         )
+
+    @app.post("/api/run/{run_id}/cancel")
+    def cancel_run(
+        run_id: str,
+        principal: auth.TokenPrincipal = Depends(current_principal),
+    ) -> dict:
+        """Stop an in-flight run. Only the user who started it may cancel it."""
+        entry = _active_runs.get(run_id)
+        if entry is None:
+            raise HTTPException(404, detail="no such run (it may have finished)")
+        task, owner = entry
+        if owner != principal.username:
+            # Same 404 as an unknown id: whether someone else's run exists is
+            # not this caller's business.
+            raise HTTPException(404, detail="no such run (it may have finished)")
+        task.cancel()
+        return {"cancelled": run_id}
+
+    if VENDOR_DIR.exists():
+        app.mount("/vendor", StaticFiles(directory=VENDOR_DIR), name="vendor")
 
     if STATIC_DIR.exists():
         app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

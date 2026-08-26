@@ -80,11 +80,19 @@ def _answer_panel_text(markdown: str) -> str:
     return _WIKILINK.sub(lambda m: "[" + m.group(1).split("/")[-1] + "]", body).strip()
 
 
-def _build_graph(
+def build_graph(
     compiled: CompiledOutput,
-    results: list[GatherResult] | None,
-    verdict: VetoVerdict | None,
+    results: list[GatherResult] | None = None,
+    verdict: VetoVerdict | None = None,
 ) -> dict:
+    """The graph as plain JSON-able data: {nodes, edges, meta}.
+
+    Public because two surfaces render it: `render_html` below writes the
+    self-contained standalone page, and the server streams this same
+    structure to the live frontend in its `run_state` event. Keeping one
+    builder means a department is the same color, and a denied file the
+    same locked node, in both places.
+    """
     targets, tags = parse_links(compiled.obsidian_markdown)
 
     notes: dict[str, str] = {}
@@ -308,7 +316,7 @@ def render_html(
     unapproved state on the page. Both optional so the renderer works from a
     bare CompiledOutput.
     """
-    graph = _build_graph(compiled, results, verdict)
+    graph = build_graph(compiled, results, verdict)
     # "</" would close the inline <script> if it ever appeared inside embedded
     # file text; escaping it is a no-op for the parsed JSON.
     data = json.dumps(graph).replace("</", "<\\/")

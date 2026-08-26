@@ -134,6 +134,15 @@ SSE event contract (what the frontend builds against): `run_started`,
 `run_state` (final: markdown, sources, verdict, attempts, `viz_url`),
 `error`.
 
+> **✅ BOTH FLAGGED DIFFS LANDED (Michael, 2026-08-25).** `pipeline.run()` now
+> takes `requester_role` / `emit` / `config`, and `server/runs.py` calls it
+> directly — the replica veto loop is deleted. Diff 1 turned out to be half
+> done: `gather.gather` already accepted `permissions_cfg`, but `spawn.py:69`
+> was calling it without passing `perms`, so the gatherer's pre-gate still
+> resolved the YAML principal. Fixed, and pinned by
+> `test_role_threading.py::test_authenticated_role_reaches_the_gatherers_own_gate`.
+> See "FRONTEND + CONTROL SURFACE" below for everything else that changed.
+
 ### ⚠️ FOR MICHAEL — two flagged diffs awaiting you
 
 Both are strictly additive kwargs; until you land them the demo still
@@ -166,6 +175,59 @@ async def run(prompt, config_path="config/environment.yaml",
     # emit(event_name, payload_dict) fires wherever _log() does today;
     # None keeps stderr-only logging.
 ```
+
+## FRONTEND + CONTROL SURFACE (Michael, 2026-08-25)
+
+`server/static/index.html` is now the real frontend, not a reference log.
+Left rail = controls + fleet + veto; right = live graph + answer pane.
+
+**New API surface** (Malik: these touch your package — all additive):
+
+| Endpoint | Notes |
+|---|---|
+| `GET /api/fleet` | Read-only. Departments with `readable` computed for the caller's JWT role, `storage` provider (the ☁ badge), models, limits, veto allowlist. No model calls. |
+| `POST /api/run` | Gains bounded overrides — see below. Rejected overrides are a 400 *before* streaming starts, not an error event mid-stream. |
+| `POST /api/run/{run_id}/cancel` | Cancels an in-flight run. `run_started` now carries `run_id`. Authorized against the JWT: knowing an id is not enough, it must be *your* run (otherwise 404, indistinguishable from unknown). |
+
+**Per-run overrides** on `RunRequest` (`schemas.py` — your "ping first" file):
+`max_gatherers`, `max_retries`, `veto_model`, `departments`. All bounded, all
+applied to a `model_copy(deep=True)` in `runs.apply_overrides`, so concurrent
+runs never see each other's knobs. The ints clamp to the operator ceiling,
+`veto_model` must be in `models.veto_choices` (new, `contracts/config.py`), and
+`departments` only ever narrows — an unknown name is rejected, not ignored.
+
+**New SSE events** for the live animation. `gather.gather` gained
+`on_progress`, threaded exactly like `on_result`
+(gather → spawn → manager → pipeline → SSE). All advisory, default `None`,
+CLI path unchanged:
+`scanning{candidates}` · `file_denied{path}` · `selecting{count}` ·
+`downloading{provider}` · `file_read{path,bytes}` · `assessing{count}` ·
+`file_assessed{path,relevant,note}` · `kept_unassessed{count}`.
+Every payload carries `department`. `run_state` now also carries `graph` —
+the output of `viz.build_graph()` (was `_build_graph`), so the browser draws
+the identical graph instead of reimplementing the node vocabulary in JS.
+
+**`permissions.department_allowed(role, dept, perms)`** extracted from
+`allowed()`, which now delegates to it. The fleet view needs the department
+half of the AND gate without a path, and must never disagree with the gate
+the gatherers actually enforce.
+
+### ⚠️ Two things that bit us live
+
+1. **Nothing loaded `.env`.** Both keys were sitting in the repo root the
+   whole time and no process read them — that is why no model call had ever
+   run and the live tests silently skipped. `agentic/env.py` + `load_env()`
+   at the three entry points (CLI, `create_app`, pytest `conftest.py`).
+   `checker.py` also built its Anthropic client at *import* time, before any
+   entry point could load the keys; it is lazy now.
+2. **Free-tier Gemini quota is 20 requests/day/model.** A run costs 5–8, so
+   the free tier is ~3 runs/day *per model*. We exhausted
+   `gemini-3-flash-preview` during testing. `agentic/retry.py` now retries
+   transient 503/429 (honouring the server's own `retryDelay`) from the
+   planner, gatherers and synthesizer — none of which had any retry before,
+   and the planner runs first so it killed whole runs. A *daily* quota is
+   deliberately **not** retried: it raises `QuotaExhausted` immediately with
+   the fix in the message. **This needs billing or Vertex AI before the demo.**
 
 ### Server setup
 

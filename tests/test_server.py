@@ -42,7 +42,7 @@ def client(monkeypatch, tmp_path):
     def install_fakes(verdicts=(True,)):
         seen = {"requester_role": None}
 
-        async def fake_plan_and_gather(prompt, config, requester_role=None, on_result=None):
+        async def fake_plan_and_gather(prompt, config, requester_role=None, on_result=None, on_progress=None):
             seen["requester_role"] = requester_role
             eng = GatherResult(request_id="r0", department="engineering")
             if requester_role == "admin":
@@ -226,7 +226,7 @@ def test_veto_retry_streams_revising_then_approves(client):
 def test_pipeline_error_becomes_error_event(client, monkeypatch):
     client.install_fakes()
 
-    async def boom(prompt, config, requester_role=None, on_result=None):
+    async def boom(prompt, config, requester_role=None, on_result=None, on_progress=None):
         raise RuntimeError("model exploded")
 
     from agentic.state_manager import manager

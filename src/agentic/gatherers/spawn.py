@@ -52,12 +52,18 @@ async def spawn_gatherers(
     config: EnvironmentConfig,
     permissions_cfg: permissions.PermissionsConfig | None = None,
     on_result: Callable[[GatherRequest, GatherResult], None] | None = None,
+    on_progress: Callable[[str, dict], None] | None = None,
 ) -> list[GatherResult]:
     """Fan out one gatherer per request, capped by config.gatherers.max_gatherers.
 
     ``on_result`` (optional, sync) fires after the gate has stripped each
     result, so observers (server SSE — provisional, Malik) see the final
     kept/denied counts. It must not mutate the result.
+
+    ``on_progress`` (optional, sync) is handed to each gatherer for live
+    per-file narration while it works — see gather.Progress. Interleaved
+    across the fan-out, which is the point: each payload names its
+    department.
     """
     perms = permissions_cfg or permissions.load_permissions_config()
     role = perms.principal.role
@@ -66,7 +72,7 @@ async def spawn_gatherers(
 
     async def _bounded(request: GatherRequest) -> GatherResult:
         async with semaphore:
-            return await gather.gather(request, config)
+            return await gather.gather(request, config, perms, on_progress)
 
     results = await asyncio.gather(*[_bounded(r) for r in requests])
 

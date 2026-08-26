@@ -29,6 +29,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Callable
 
 from google import genai
 from google.genai import types
@@ -37,6 +38,7 @@ from pydantic import BaseModel
 from agentic.contracts.config import DepartmentConfig, EnvironmentConfig
 from agentic.contracts.messages import GatheredFile, GatherRequest, GatherResult
 from agentic.gatherers import permissions
+from agentic.retry import with_retry
 
 # Total characters a department may hand the model in one read-everything
 # pass. Above this, selection runs first.
@@ -110,6 +112,28 @@ class _Assessments(BaseModel):
     assessments: list[_Assessment]
 
 
+#: on_progress(event_name, payload) — optional live narration of one gatherer's
+#: work, for the streaming frontend. Advisory only: the default is None, the CLI
+#: path is unchanged, and nothing here may mutate the GatherResult. The callback
+#: is invoked on the event loop thread and must not raise or block.
+#:
+#: Events: scanning {candidates} · file_denied {path} · selecting {count} ·
+#: file_read {path, bytes} · assessing {count} · file_assessed {path, relevant, note}
+#: Every payload also carries `department`.
+Progress = Callable[[str, dict], None]
+
+
+def _narrator(request: GatherRequest, on_progress: Progress | None):
+    """Bind the department to a progress callback, or return a no-op."""
+    if on_progress is None:
+        return lambda event, **fields: None
+
+    def narrate(event: str, **fields) -> None:
+        on_progress(event, {"department": request.department, **fields})
+
+    return narrate
+
+
 @lru_cache(maxsize=1)
 def _default_permissions() -> permissions.PermissionsConfig:
     """Loaded once — gatherers run concurrently and would otherwise each read it."""
@@ -140,11 +164,13 @@ def _gate(
     config: EnvironmentConfig,
     perms: permissions.PermissionsConfig,
     result: GatherResult,
+    narrate=None,
 ) -> dict[str, Path]:
     """Glob the department, gate every path, return {relative path: full path}.
 
     Denials land in result.denied. Nothing here opens a file.
     """
+    narrate = narrate or (lambda event, **fields: None)
     dept = config.department(request.department)
     root = Path(dept.path)
 
@@ -152,13 +178,19 @@ def _gate(
     for pattern in dept.file_globs:
         candidates.extend(p for p in root.glob(pattern) if p.is_file())
 
+    candidates = sorted(set(candidates))
+    narrate("scanning", candidates=len(candidates))
+
     allowed: dict[str, Path] = {}
-    for path in sorted(set(candidates)):
+    for path in candidates:
         rel = path.relative_to(root).as_posix()
         if permissions.allowed(rel, perms.principal.role, dept, perms):
             allowed[rel] = path
         else:
             result.denied.append(rel)
+            # Denials are narrated as they happen, before a single file is
+            # opened — the locked nodes appear first, which is the point.
+            narrate("file_denied", path=rel)
     return allowed
 
 
@@ -172,14 +204,17 @@ def _total_size(allowed: dict[str, Path]) -> int:
     return total
 
 
-def _read(paths: dict[str, Path], result: GatherResult) -> dict[str, str]:
+def _read(paths: dict[str, Path], result: GatherResult, narrate=None) -> dict[str, str]:
     """Read each file; one bad file records an error instead of sinking the rest."""
+    narrate = narrate or (lambda event, **fields: None)
     documents: dict[str, str] = {}
     for rel, path in paths.items():
         try:
             documents[rel] = path.read_text(encoding="utf-8", errors="replace")
         except OSError as exc:
             result.errors.append(f"{rel}: {exc}")
+            continue
+        narrate("file_read", path=rel, bytes=len(documents[rel]))
     return documents
 
 
@@ -192,18 +227,23 @@ def _request_header(request: GatherRequest) -> str:
 
 
 async def _generate(instruction: str, message: str, model: str, schema: type):
-    response = await _client().aio.models.generate_content(
-        model=model,
-        contents=message,
-        config=types.GenerateContentConfig(
-            system_instruction=instruction,
-            response_mime_type="application/json",
-            response_schema=schema,
-        ),
-    )
-    if response.parsed is None:
-        raise ValueError("gatherer model returned no parsable response")
-    return response.parsed
+    """One structured Gemini call, retried through the shared policy."""
+
+    async def once():
+        response = await _client().aio.models.generate_content(
+            model=model,
+            contents=message,
+            config=types.GenerateContentConfig(
+                system_instruction=instruction,
+                response_mime_type="application/json",
+                response_schema=schema,
+            ),
+        )
+        if response.parsed is None:
+            raise ValueError("gatherer model returned no parsable response")
+        return response.parsed
+
+    return await with_retry(once, what="gatherer")
 
 
 async def _select(
@@ -267,14 +307,19 @@ async def _assess_and_collect(
     request: GatherRequest,
     config: EnvironmentConfig,
     result: GatherResult,
+    narrate=None,
 ) -> GatherResult:
     """Assess already-read documents and collect the keepers onto `result`.
 
     Shared by the local and cloud paths so a cloud file carries the same
     grounded relevance_note a local one does.
     """
+    narrate = narrate or (lambda event, **fields: None)
+    narrate("assessing", count=len(documents))
     try:
         assessments = await _assess(documents, request, config)
+        for rel, a in assessments.items():
+            narrate("file_assessed", path=rel, relevant=a.relevant, note=a.note)
     except Exception as exc:
         # The files are already read. Returning them unassessed keeps the
         # department in the answer; dropping them would be a silent gap.
@@ -287,6 +332,9 @@ async def _assess_and_collect(
     if not relevant:
         # Nothing was judged relevant (or assessment failed). Hand back what
         # was read rather than an empty department — noise beats a gap.
+        # Narrated so the frontend doesn't leave these files greyed out as
+        # "not relevant" when they are in fact about to be used.
+        narrate("kept_unassessed", count=len(documents))
         for rel, content in documents.items():
             note = assessments[rel].note if rel in assessments else ""
             result.files.append(
@@ -317,6 +365,7 @@ async def _gather_cloud(
     config: EnvironmentConfig,
     dept: DepartmentConfig,
     perms: permissions.PermissionsConfig,
+    narrate=None,
 ) -> GatherResult:
     """GCS/Drive departments: Malik's adapter does the I/O, we do the assessment.
 
@@ -327,6 +376,9 @@ async def _gather_cloud(
     """
     from agentic.gatherers import gatherer
 
+    narrate = narrate or (lambda event, **fields: None)
+    narrate("downloading", provider=dept.storage.provider if dept.storage else None)
+
     result = await gatherer.gather_files(request, config)
 
     # That path gates with permissions.check (environment config only); the
@@ -336,37 +388,42 @@ async def _gather_cloud(
     for f in result.files:
         if permissions.allowed(f.path, perms.principal.role, dept, perms):
             documents[f.path] = f.content
+            narrate("file_read", path=f.path, bytes=len(f.content))
         else:
             result.denied.append(f.path)
+            narrate("file_denied", path=f.path)
     result.files = []
 
     if not documents:
         return result
 
-    return await _assess_and_collect(documents, request, config, result)
+    return await _assess_and_collect(documents, request, config, result, narrate)
 
 
 async def gather(
     request: GatherRequest,
     config: EnvironmentConfig,
     permissions_cfg: permissions.PermissionsConfig | None = None,
+    on_progress: Progress | None = None,
 ) -> GatherResult:
     """Read and assess the plausibly-relevant files for one department."""
     perms = permissions_cfg or _default_permissions()
+    narrate = _narrator(request, on_progress)
 
     dept = config.department(request.department)
     if dept.storage is not None:
-        return await _gather_cloud(request, config, dept, perms)
+        return await _gather_cloud(request, config, dept, perms, narrate)
 
     result = GatherResult(request_id=request.request_id, department=request.department)
 
-    allowed = _gate(request, config, perms, result)
+    allowed = _gate(request, config, perms, result, narrate)
     if not allowed:
         return result
 
     # Selection is a concession to a finite budget, not the default. When the
     # department fits, every file is read and nothing can be filtered away.
     if len(allowed) > _limit(request, config) or _total_size(allowed) > READ_ALL_CHARS:
+        narrate("selecting", count=len(allowed))
         try:
             allowed = await _select(allowed, request, config, result)
         except Exception as exc:
@@ -380,8 +437,8 @@ async def gather(
         if not allowed:
             return result
 
-    documents = _read(allowed, result)
+    documents = _read(allowed, result, narrate)
     if not documents:
         return result
 
-    return await _assess_and_collect(documents, request, config, result)
+    return await _assess_and_collect(documents, request, config, result, narrate)

@@ -2,98 +2,764 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>agentic fleet — reference UI</title>
+<title>agentic fleet</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  :root { color-scheme: dark; }
-  body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; background: #12151c; color: #d6dae2; }
-  h1 { font-size: 1.2rem; } code { background: #1d2230; padding: .1em .35em; border-radius: 4px; }
-  input, button { font: inherit; padding: .45rem .7rem; border-radius: 6px; border: 1px solid #39415a; background: #1a1f2b; color: inherit; }
-  button { cursor: pointer; background: #2d4a8a; border-color: #2d4a8a; }
-  button:disabled { opacity: .5; cursor: default; }
-  form { display: flex; gap: .5rem; margin: .5rem 0; }
-  #who { float: right; }
-  #feed { list-style: none; padding: 0; font-size: .85rem; max-height: 300px; overflow-y: auto; }
-  #feed li { padding: .25rem 0; border-bottom: 1px solid #222839; white-space: pre-wrap; }
-  #answer { background: #171b26; border: 1px solid #262d40; border-radius: 8px; padding: 1rem; white-space: pre-wrap; display: none; }
-  .err { color: #ff8080; } .ok { color: #7fd18c; }
+:root {
+  color-scheme: dark;
+  --bg: #16161e;
+  --panel: #1d1d29;
+  --panel-2: #21212f;
+  --line: #2c2c3d;
+  --text: #c9c9d9;
+  --dim: #8b8bb0;
+  --faint: #565670;
+  --accent: #7aa2f7;
+  --ok: #7dd8a0;
+  --bad: #f7768e;
+  --warn: #e0af68;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { opacity: .45; cursor: default; }
+
+/* ---------- header ---------- */
+header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; border-bottom: 1px solid var(--line);
+  background: var(--panel); flex-shrink: 0;
+}
+.brand { font-weight: 600; letter-spacing: -.01em; }
+.brand .dot { color: var(--accent); }
+.spacer { flex: 1; }
+.chip {
+  font-size: 11px; padding: 3px 9px; border-radius: 999px;
+  background: #26263a; color: var(--dim); white-space: nowrap;
+}
+.chip.role-admin { background: #3a2a4a; color: #d0aef7; }
+.chip.role-analyst { background: #1f3350; color: #9dc0f7; }
+.ghost {
+  background: transparent; border: 1px solid var(--line);
+  border-radius: 6px; padding: 5px 10px; font-size: 12px; color: var(--dim);
+}
+.ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+
+/* ---------- login ---------- */
+#login-view {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+}
+.login-card {
+  width: 380px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 28px;
+}
+.login-card h1 { font-size: 18px; margin: 0 0 4px; }
+.login-card p.sub { color: var(--dim); font-size: 13px; margin: 0 0 20px; }
+.login-card input {
+  width: 100%; padding: 9px 11px; margin-bottom: 10px;
+  background: var(--bg); border: 1px solid var(--line);
+  border-radius: 7px;
+}
+.login-card input:focus { outline: none; border-color: var(--accent); }
+.primary {
+  width: 100%; padding: 10px; border: none; border-radius: 7px;
+  background: var(--accent); color: #10131c; font-weight: 600;
+}
+.primary:hover:not(:disabled) { background: #93b5f9; }
+.demo-users { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+.demo-users .label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
+  color: var(--faint); margin-bottom: 8px;
+}
+.demo-user {
+  display: block; width: 100%; text-align: left; margin-bottom: 6px;
+  padding: 8px 10px; border-radius: 7px; font-size: 12px;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--dim);
+}
+.demo-user:hover { border-color: var(--accent); }
+.demo-user b { color: var(--text); }
+
+/* ---------- layout ---------- */
+#app-view { flex: 1; display: flex; min-height: 0; }
+#rail {
+  width: 330px; flex-shrink: 0; border-right: 1px solid var(--line);
+  background: var(--panel); overflow-y: auto; padding: 16px;
+}
+#main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#graph-wrap { flex: 1; position: relative; min-height: 0; }
+#graph { position: absolute; inset: 0; }
+#graph-empty {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center; color: var(--faint); font-size: 13px;
+  text-align: center; padding: 0 40px; pointer-events: none;
+}
+#answer-pane {
+  height: 40%; min-height: 150px; border-top: 1px solid var(--line);
+  background: var(--panel); overflow-y: auto; padding: 16px 20px;
+}
+
+section { margin-bottom: 20px; }
+h2.sec {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
+  color: var(--faint); margin: 0 0 9px; font-weight: 600;
+}
+
+/* ---------- ask ---------- */
+#prompt {
+  width: 100%; padding: 9px 11px; background: var(--bg);
+  border: 1px solid var(--line); border-radius: 7px; resize: vertical;
+  min-height: 62px; font-family: inherit;
+}
+#prompt:focus { outline: none; border-color: var(--accent); }
+.row { display: flex; gap: 8px; margin-top: 8px; }
+.row .primary { flex: 1; }
+.examples { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 5px; }
+.example {
+  font-size: 11px; padding: 4px 8px; border-radius: 6px; text-align: left;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--dim);
+}
+.example:hover { border-color: var(--accent); color: var(--text); }
+
+/* ---------- controls ---------- */
+.ctrl { margin-bottom: 11px; }
+.ctrl-head {
+  display: flex; justify-content: space-between; font-size: 12px;
+  color: var(--dim); margin-bottom: 4px;
+}
+.ctrl-head b { color: var(--text); font-weight: 600; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+select {
+  width: 100%; padding: 6px 9px; background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; font-size: 12px;
+}
+
+/* ---------- fleet ---------- */
+.dept {
+  display: flex; align-items: center; gap: 8px; padding: 7px 9px;
+  border: 1px solid var(--line); border-radius: 7px; margin-bottom: 6px;
+  background: var(--panel-2); font-size: 13px;
+}
+.dept.locked { opacity: .55; }
+.dept .swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.dept .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dept .tag { font-size: 10px; color: var(--faint); white-space: nowrap; }
+.dept .tag.cloud { color: #6fc9de; }
+.dept .count { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.dept input[type=checkbox] { accent-color: var(--accent); }
+.denied-list {
+  margin: 2px 0 8px 26px; font-size: 11px; color: var(--faint);
+}
+.denied-list div { padding: 1px 0; }
+
+/* ---------- veto ---------- */
+.veto-card {
+  border: 1px solid var(--line); border-left-width: 3px; border-radius: 6px;
+  padding: 8px 10px; margin-bottom: 6px; font-size: 12px; background: var(--panel-2);
+}
+.veto-card.approved { border-left-color: var(--ok); }
+.veto-card.vetoed { border-left-color: var(--bad); }
+.veto-card .verdict { font-weight: 600; margin-bottom: 3px; }
+.veto-card.approved .verdict { color: var(--ok); }
+.veto-card.vetoed .verdict { color: var(--bad); }
+.veto-card li { margin-left: -12px; color: var(--dim); }
+
+/* ---------- stages ---------- */
+#stages { display: flex; gap: 4px; margin-bottom: 14px; }
+.stage {
+  flex: 1; height: 3px; border-radius: 2px; background: var(--line);
+  position: relative; transition: background .25s;
+}
+.stage.active { background: var(--accent); animation: pulse 1.1s infinite; }
+.stage.done { background: #3d5a8a; }
+@keyframes pulse { 50% { opacity: .35; } }
+#stage-label { font-size: 11px; color: var(--dim); margin-bottom: 12px; min-height: 16px; }
+
+/* ---------- answer ---------- */
+#answer-head {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.badge {
+  font-size: 11px; padding: 3px 9px; border-radius: 999px; font-weight: 600;
+}
+.badge.approved { background: #1c3a2a; color: var(--ok); }
+.badge.unapproved { background: #4a1d1d; color: var(--bad); }
+#answer-body { font-size: 14px; line-height: 1.65; max-width: 72ch; }
+#answer-body h4 { font-size: 13px; margin: 16px 0 6px; color: var(--text); }
+#answer-body p { margin: 0 0 10px; }
+#answer-body ul { margin: 0 0 10px; padding-left: 20px; }
+#answer-body strong { color: #e8e8f2; }
+.cite {
+  font-size: 11px; padding: 1px 6px; border-radius: 4px; cursor: pointer;
+  background: #26263a; color: var(--accent); border: none; margin: 0 1px;
+}
+.cite:hover { background: #33334d; }
+#answer-empty { color: var(--faint); font-size: 13px; }
+
+/* ---------- misc ---------- */
+#err {
+  margin-top: 10px; padding: 8px 10px; border-radius: 6px;
+  background: #4a1d1d; color: #f7b1bd; font-size: 12px;
+}
+#node-panel {
+  position: absolute; right: 12px; top: 12px; width: 270px; z-index: 5;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+  padding: 12px; font-size: 12px; box-shadow: 0 8px 28px #0008;
+}
+#node-panel .kind {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--faint); margin-bottom: 3px;
+}
+#node-panel .title { font-weight: 600; margin-bottom: 7px; word-break: break-all; }
+#node-panel .detail { color: var(--dim); line-height: 1.5; white-space: pre-wrap; }
+#node-panel .close {
+  position: absolute; top: 8px; right: 9px; background: none;
+  border: none; color: var(--faint); font-size: 15px; line-height: 1; padding: 2px;
+}
+[hidden] { display: none !important; }
 </style>
 </head>
 <body>
-<span id="who"></span>
-<h1>agentic fleet <small style="font-weight:normal">(reference UI — replace freely)</small></h1>
 
-<form id="login">
-  <input id="username" placeholder="username" autocomplete="username">
-  <input id="password" type="password" placeholder="password" autocomplete="current-password">
-  <button>log in</button>
-</form>
+<header>
+  <span class="brand"><span class="dot">⬢</span> agentic fleet</span>
+  <span class="chip" id="run-mode" hidden></span>
+  <span class="spacer"></span>
+  <span class="chip" id="who" hidden></span>
+  <button class="ghost" id="switch-user" hidden>switch user</button>
+  <button class="ghost" id="logout" hidden>log out</button>
+</header>
 
-<form id="ask" hidden>
-  <input id="prompt" placeholder="e.g. summarize Q3 engineering spend vs finance budget" style="flex:1">
-  <button id="runbtn">run</button>
-</form>
+<!-- ============ LOGIN ============ -->
+<div id="login-view">
+  <form class="login-card" id="login-form">
+    <h1>Sign in</h1>
+    <p class="sub">Your role decides which departments the fleet may read.</p>
+    <input id="username" placeholder="username" autocomplete="username">
+    <input id="password" type="password" placeholder="password" autocomplete="current-password">
+    <button class="primary" type="submit">Sign in</button>
+    <div class="demo-users">
+      <div class="label">demo identities</div>
+      <button class="demo-user" type="button" data-u="alice" data-p="analyst-demo-pass">
+        <b>alice</b> · analyst — engineering + finance
+      </button>
+      <button class="demo-user" type="button" data-u="root" data-p="admin-demo-pass">
+        <b>root</b> · admin — everything, including HR
+      </button>
+    </div>
+    <div id="login-err" hidden></div>
+  </form>
+</div>
 
-<ul id="feed"></ul>
-<pre id="answer"></pre>
-<p id="vizlink"></p>
+<!-- ============ APP ============ -->
+<div id="app-view" hidden>
+  <aside id="rail">
+    <div id="stages">
+      <div class="stage" data-stage="plan"></div>
+      <div class="stage" data-stage="gather"></div>
+      <div class="stage" data-stage="synthesize"></div>
+      <div class="stage" data-stage="veto"></div>
+    </div>
+    <div id="stage-label"></div>
 
+    <section>
+      <h2 class="sec">Ask</h2>
+      <textarea id="prompt" placeholder="Ask across the fleet…"></textarea>
+      <div class="row">
+        <button class="primary" id="run-btn">Run</button>
+        <button class="ghost" id="cancel-btn" disabled>Cancel</button>
+      </div>
+      <div class="examples" id="examples"></div>
+      <div id="err" hidden></div>
+    </section>
+
+    <section>
+      <h2 class="sec">Run controls</h2>
+      <div class="ctrl">
+        <div class="ctrl-head"><span>fan-out</span><b id="fanout-val">–</b></div>
+        <input type="range" id="fanout" min="1" max="4" value="4">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-head"><span>veto retries</span><b id="retries-val">–</b></div>
+        <input type="range" id="retries" min="0" max="2" value="2">
+      </div>
+      <div class="ctrl" id="veto-model-ctrl" hidden>
+        <div class="ctrl-head"><span>veto model</span></div>
+        <select id="veto-model"></select>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="sec">Fleet</h2>
+      <div id="fleet"></div>
+    </section>
+
+    <section id="veto-section" hidden>
+      <h2 class="sec">Veto checker</h2>
+      <div id="veto-list"></div>
+    </section>
+
+    <section>
+      <h2 class="sec">Models</h2>
+      <div id="models" style="font-size:11px;color:var(--faint);line-height:1.8"></div>
+    </section>
+  </aside>
+
+  <div id="main">
+    <div id="graph-wrap">
+      <div id="graph"></div>
+      <div id="graph-empty">Ask a question — the fleet's departments, the files each
+        gatherer reads, and anything the permission gate blocks will appear here as it happens.</div>
+      <div id="node-panel" hidden>
+        <button class="close" id="node-close">×</button>
+        <div class="kind" id="node-kind"></div>
+        <div class="title" id="node-title"></div>
+        <div class="detail" id="node-detail"></div>
+      </div>
+    </div>
+    <div id="answer-pane">
+      <div id="answer-head" hidden>
+        <span class="badge" id="answer-badge"></span>
+        <span class="chip" id="answer-meta"></span>
+        <a class="chip" id="answer-viz" href="#" target="_blank"
+           style="text-decoration:none">open standalone graph ↗</a>
+      </div>
+      <div id="answer-empty">No answer yet.</div>
+      <div id="answer-body"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/vendor/vis-network.min.js"></script>
 <script>
 "use strict";
-let token = null, role = null;
+
+// Matches viz._PALETTE so a department keeps its colour when the live graph
+// is replaced by the authoritative one from build_graph().
+const PALETTE = ["#7aa2f7","#f7768e","#9ece6a","#e0af68","#bb9af7","#2ac3de","#ff9e64"];
+const DENIED_COLOR = { background: "#3a3a44", border: "#565662" };
+const CANDIDATE_COLOR = { background: "#2a2a38", border: "#3d3d52" };
+
+const EXAMPLES = [
+  "Compare Q3 engineering spend to the finance budget",
+  "What did engineering ship in Q3, and what did it cost?",
+  "Summarise HR compensation bands",
+  "Where is the budget at risk going into Q4?",
+];
+
 const $ = (id) => document.getElementById(id);
 
-function log(kind, text) {
-  const li = document.createElement("li");
-  if (kind === "error") li.className = "err";
-  if (kind === "ok") li.className = "ok";
-  li.textContent = text;
-  $("feed").prepend(li);
+let token = null, me = null, fleet = null;
+let network = null, nodes = null, edges = null;
+let deptColor = {};          // department -> hex
+let runId = null, running = false;
+let queue = [], draining = false;   // staggered node insertion
+
+/* ============================ auth ============================ */
+
+async function api(path, opts = {}) {
+  const headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
+  if (token) headers["Authorization"] = "Bearer " + token;
+  return fetch(path, Object.assign({}, opts, { headers }));
 }
 
-$("login").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const res = await fetch("/api/login", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({username: $("username").value, password: $("password").value}),
+async function login(username, password) {
+  const res = await api("/api/login", {
+    method: "POST", body: JSON.stringify({ username, password }),
   });
-  if (!res.ok) return log("error", `login failed: ${res.status} ${(await res.json()).detail ?? ""}`);
-  const data = await res.json();
-  token = data.access_token; role = data.role;
-  $("login").hidden = true; $("ask").hidden = false;
-  $("who").textContent = `${data.username} [${role}]`;
-  log("ok", `logged in as ${data.username} (${role})`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || `login failed (${res.status})`);
+  token = data.access_token;
+  me = { username: data.username, role: data.role };
+  return data;
+}
+
+$("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errEl = $("login-err");
+  errEl.hidden = true;
+  try {
+    await login($("username").value.trim(), $("password").value);
+    await enterApp();
+  } catch (e) {
+    errEl.id = "err"; errEl.hidden = false; errEl.textContent = e.message;
+  }
 });
 
-// EventSource cannot POST, so parse the SSE stream from fetch manually.
-$("ask").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const prompt = $("prompt").value.trim();
-  if (!prompt || !token) return;
-  $("runbtn").disabled = true; $("answer").style.display = "none";
-  const res = await fetch("/api/run", {
-    method: "POST",
-    headers: {"Content-Type": "application/json", "Authorization": "Bearer " + token},
-    body: JSON.stringify({prompt}),
+document.querySelectorAll(".demo-user").forEach((b) => {
+  b.addEventListener("click", () => {
+    $("username").value = b.dataset.u;
+    $("password").value = b.dataset.p;
+    $("login-form").requestSubmit();
   });
-  if (!res.ok) { $("runbtn").disabled = false; return log("error", `run failed: ${res.status} ${(await res.json()).detail ?? ""}`); }
+});
 
+$("logout").addEventListener("click", () => {
+  token = null; me = null;
+  $("app-view").hidden = true; $("login-view").hidden = false;
+  ["who", "switch-user", "logout"].forEach((id) => ($(id).hidden = true));
+});
+
+// The demo beat: same question, other identity. Keeps the prompt so the
+// permission difference is the only thing that changed.
+$("switch-user").addEventListener("click", async () => {
+  const other = me.username === "alice"
+    ? { u: "root", p: "admin-demo-pass" }
+    : { u: "alice", p: "analyst-demo-pass" };
+  const keep = $("prompt").value;
+  try {
+    await login(other.u, other.p);
+    await enterApp();
+    $("prompt").value = keep;
+  } catch (e) { showError(e.message); }
+});
+
+/* ============================ app shell ============================ */
+
+async function enterApp() {
+  $("login-view").hidden = true;
+  $("app-view").hidden = false;
+  $("who").hidden = false; $("switch-user").hidden = false; $("logout").hidden = false;
+  $("who").textContent = `${me.username} · ${me.role}`;
+  $("who").className = "chip role-" + me.role;
+  await loadFleet();
+  initGraph();
+  renderExamples();
+}
+
+function renderExamples() {
+  const box = $("examples");
+  box.textContent = "";
+  EXAMPLES.forEach((text) => {
+    const b = document.createElement("button");
+    b.className = "example"; b.type = "button"; b.textContent = text;
+    b.addEventListener("click", () => { $("prompt").value = text; });
+    box.appendChild(b);
+  });
+}
+
+async function loadFleet() {
+  const res = await api("/api/fleet");
+  if (!res.ok) { showError("could not load fleet"); return; }
+  fleet = await res.json();
+
+  deptColor = {};
+  fleet.departments.forEach((d, i) => { deptColor[d.name] = PALETTE[i % PALETTE.length]; });
+
+  // Sliders are capped by the operator's config; the server clamps again.
+  $("fanout").max = fleet.max_gatherers;
+  $("fanout").value = fleet.max_gatherers;
+  $("fanout-val").textContent = fleet.max_gatherers;
+  $("retries").max = fleet.max_retries;
+  $("retries").value = fleet.max_retries;
+  $("retries-val").textContent = fleet.max_retries;
+
+  const sel = $("veto-model");
+  sel.textContent = "";
+  if (fleet.veto_choices.length) {
+    $("veto-model-ctrl").hidden = false;
+    fleet.veto_choices.forEach((m) => {
+      const o = document.createElement("option");
+      o.value = m; o.textContent = m;
+      if (m === fleet.models.veto) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
+  const models = $("models");
+  models.textContent = "";
+  [["planner", fleet.models.state_manager], ["gatherers", fleet.models.gatherer],
+   ["veto", fleet.models.veto]].forEach(([k, v]) => {
+    const line = document.createElement("div");
+    line.textContent = `${k} · ${v}`;
+    models.appendChild(line);
+  });
+
+  renderFleet();
+}
+
+function renderFleet(counts = {}) {
+  const box = $("fleet");
+  box.textContent = "";
+  fleet.departments.forEach((d) => {
+    const row = document.createElement("div");
+    row.className = "dept" + (d.readable ? "" : " locked");
+
+    // Locked departments get no checkbox and always stay in scope. Scoping
+    // them out would hide the gate instead of demonstrating it: the planner
+    // is allowed to route to hr, and the denial happens per file inside the
+    // gatherer. That denial is the thing worth showing.
+    if (d.readable) {
+      const cb = document.createElement("input");
+      cb.type = "checkbox"; cb.checked = true; cb.dataset.dept = d.name;
+      row.appendChild(cb);
+    } else {
+      const spacer = document.createElement("span");
+      spacer.style.width = "13px"; spacer.style.flexShrink = "0";
+      row.appendChild(spacer);
+    }
+
+    const sw = document.createElement("span");
+    sw.className = "swatch";
+    sw.style.background = d.readable ? deptColor[d.name] : "#44445a";
+    row.appendChild(sw);
+
+    const name = document.createElement("span");
+    name.className = "name"; name.textContent = d.name;
+    row.appendChild(name);
+
+    if (d.storage) {
+      const tag = document.createElement("span");
+      tag.className = "tag cloud"; tag.textContent = "☁ " + d.storage;
+      row.appendChild(tag);
+    }
+    if (!d.readable) {
+      const tag = document.createElement("span");
+      tag.className = "tag"; tag.textContent = "🔒 locked";
+      row.appendChild(tag);
+    }
+    const c = counts[d.name];
+    if (c) {
+      const count = document.createElement("span");
+      count.className = "count";
+      count.textContent = `${c.kept}✓ ${c.denied.length}🔒`;
+      row.appendChild(count);
+    }
+    box.appendChild(row);
+
+    if (c && c.denied.length) {
+      const list = document.createElement("div");
+      list.className = "denied-list";
+      c.denied.forEach((p) => {
+        const line = document.createElement("div");
+        line.textContent = "🔒 " + p;
+        list.appendChild(line);
+      });
+      box.appendChild(list);
+    }
+  });
+}
+
+$("fanout").addEventListener("input", (e) => { $("fanout-val").textContent = e.target.value; });
+$("retries").addEventListener("input", (e) => { $("retries-val").textContent = e.target.value; });
+
+function showError(msg) {
+  const el = $("err");
+  el.hidden = false; el.textContent = msg;
+}
+
+/* ============================ graph ============================ */
+
+function initGraph() {
+  nodes = new vis.DataSet([]);
+  edges = new vis.DataSet([]);
+  network = new vis.Network($("graph"), { nodes, edges }, {
+    physics: {
+      barnesHut: { gravitationalConstant: -4500, springLength: 130,
+                   springConstant: 0.02, damping: 0.3 },
+      stabilization: { iterations: 200 },
+    },
+    nodes: { borderWidth: 1.5, font: { color: "#c9c9d9", face: "system-ui", size: 13 } },
+    edges: { color: { color: "#34344a", highlight: "#8b8bb0" }, width: 1.2,
+             smooth: { type: "continuous" } },
+    interaction: { hover: true },
+  });
+  network.on("click", (p) => {
+    if (!p.nodes.length) { $("node-panel").hidden = true; return; }
+    showNode(nodes.get(p.nodes[0]));
+  });
+}
+
+function showNode(node) {
+  if (!node) return;
+  $("node-kind").textContent = node.kind || "node";
+  $("node-title").textContent = node.full_label || node.label || "";
+  $("node-detail").textContent = node.detail || "(no detail)";
+  $("node-panel").hidden = false;
+}
+$("node-close").addEventListener("click", () => { $("node-panel").hidden = true; });
+
+function resetGraph() {
+  queue = []; draining = false;
+  nodes.clear(); edges.clear();
+  $("graph-empty").hidden = false;
+  $("node-panel").hidden = true;
+}
+
+/* Staggered insertion: events arrive in bursts (a local read is sub-millisecond),
+   so the queue drains at a fixed cadence to make the crawl legible. Purely a
+   rendering choice — no event is invented and none is dropped. */
+function enqueue(fn) {
+  queue.push(fn);
+  if (!draining) drain();
+}
+
+function drain() {
+  draining = true;
+  const step = () => {
+    const fn = queue.shift();
+    if (!fn) { draining = false; return; }
+    fn();
+    setTimeout(step, 45);
+  };
+  step();
+}
+
+function ensureDept(dept) {
+  const id = "dept:" + dept;
+  if (nodes.get(id)) return id;
+  const color = deptColor[dept] || "#8b8bb0";
+  nodes.add({
+    id, label: dept, kind: "department", shape: "hexagon", size: 18,
+    color: { background: color, border: color },
+    detail: "department cluster",
+  });
+  $("graph-empty").hidden = true;
+  return id;
+}
+
+function addFileNode(dept, path, state, detail) {
+  const id = "file:" + dept + "/" + path;
+  const deptId = ensureDept(dept);
+  const color = deptColor[dept] || "#8b8bb0";
+  const style = state === "candidate"
+    ? { color: CANDIDATE_COLOR, size: 8 }
+    : { color: { background: color, border: color }, size: 11 };
+  const payload = {
+    id, label: path.split("/").pop(), kind: "file",
+    full_label: dept + "/" + path, detail: detail || "",
+    shape: "dot", ...style,
+  };
+  if (nodes.get(id)) nodes.update(payload); else nodes.add(payload);
+  if (!edges.get(id + "->dept")) {
+    edges.add({ id: id + "->dept", from: id, to: deptId });
+  }
+}
+
+function addDeniedNode(dept, path) {
+  const id = "denied:" + dept + "/" + path;
+  if (nodes.get(id)) return;
+  const deptId = ensureDept(dept);
+  nodes.add({
+    id, label: path.split("/").pop() + " 🔒", kind: "denied",
+    shape: "dot", size: 11, color: DENIED_COLOR,
+    shapeProperties: { borderDashes: [4, 4] },
+    font: { color: "#6a6a78" },
+    full_label: dept + "/" + path,
+    detail: "stripped by the permission gate — the principal role may not read this file",
+  });
+  edges.add({ id: id + "->dept", from: id, to: deptId, dashes: true });
+}
+
+/* The authoritative graph. Ids match the live ones, so updating in place keeps
+   node positions (and the physics settled) instead of snapping to a new layout. */
+function applyFinalGraph(graph) {
+  const keep = new Set(graph.nodes.map((n) => n.id));
+  nodes.getIds().forEach((id) => { if (!keep.has(id)) nodes.remove(id); });
+  nodes.update(graph.nodes);
+  edges.clear();
+  edges.add(graph.edges.map((e, i) => Object.assign({ id: "e" + i }, e)));
+  $("graph-empty").hidden = true;
+}
+
+/* ============================ run ============================ */
+
+function setStage(name) {
+  const order = ["plan", "gather", "synthesize", "veto"];
+  const at = order.indexOf(name);
+  document.querySelectorAll(".stage").forEach((el) => {
+    const i = order.indexOf(el.dataset.stage);
+    el.className = "stage" + (i < at ? " done" : i === at ? " active" : "");
+  });
+}
+
+function clearStages() {
+  document.querySelectorAll(".stage").forEach((el) => { el.className = "stage"; });
+  $("stage-label").textContent = "";
+}
+
+$("run-btn").addEventListener("click", startRun);
+$("prompt").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) startRun();
+});
+
+$("cancel-btn").addEventListener("click", async () => {
+  if (!runId) return;
+  await api(`/api/run/${runId}/cancel`, { method: "POST" });
+  $("stage-label").textContent = "cancelling…";
+});
+
+async function startRun() {
+  const prompt = $("prompt").value.trim();
+  if (!prompt || running) return;
+
+  // Checked readable departments, plus every locked one — see renderFleet.
+  const checked = Array.from(document.querySelectorAll("#fleet input[type=checkbox]"))
+    .filter((cb) => cb.checked).map((cb) => cb.dataset.dept);
+  if (!checked.length) { showError("select at least one department"); return; }
+  const locked = fleet.departments.filter((d) => !d.readable).map((d) => d.name);
+  const selected = checked.concat(locked);
+
+  running = true; runId = null;
+  $("run-btn").disabled = true; $("cancel-btn").disabled = false;
+  $("err").hidden = true;
+  $("answer-head").hidden = true; $("answer-body").textContent = "";
+  $("answer-empty").hidden = false;
+  $("veto-section").hidden = true; $("veto-list").textContent = "";
+  resetGraph();
+  renderFleet();
+  setStage("plan");
+  $("stage-label").textContent = "planning the fan-out…";
+
+  const body = {
+    prompt,
+    max_gatherers: Number($("fanout").value),
+    max_retries: Number($("retries").value),
+    departments: selected,
+  };
+  if (!$("veto-model-ctrl").hidden) body.veto_model = $("veto-model").value;
+
+  let res;
+  try {
+    res = await api("/api/run", { method: "POST", body: JSON.stringify(body) });
+  } catch (e) { finishRun(); showError(String(e)); return; }
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    finishRun();
+    showError(data.detail || `run failed (${res.status})`);
+    return;
+  }
+
+  // EventSource cannot POST, so the SSE stream is parsed off the fetch body.
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
   while (true) {
-    const {done, value} = await reader.read();
+    const { done, value } = await reader.read();
     if (done) break;
-    buf += decoder.decode(value, {stream: true});
+    buf += decoder.decode(value, { stream: true });
     let idx;
     while ((idx = buf.indexOf("\n\n")) >= 0) {
       handleFrame(buf.slice(0, idx));
       buf = buf.slice(idx + 2);
     }
   }
-  $("runbtn").disabled = false;
-});
+  finishRun();
+}
+
+function finishRun() {
+  running = false; runId = null;
+  $("run-btn").disabled = false; $("cancel-btn").disabled = true;
+}
+
+const counts = {};
 
 function handleFrame(frame) {
   let event = "message", data = "";
@@ -102,23 +768,210 @@ function handleFrame(frame) {
     else if (line.startsWith("data: ")) data += line.slice(6);
   }
   if (!data) return;
-  const p = JSON.parse(data);
+  let p;
+  try { p = JSON.parse(data); } catch { return; }
+  onEvent(event, p);
+}
+
+function onEvent(event, p) {
   switch (event) {
-    case "run_started": log("", `▶ ${p.prompt} (as ${p.role})`); break;
-    case "gatherer_result": log(p.denied.length ? "error" : "", `  ${p.department}: ${p.kept} kept, ${p.denied.length} denied${p.denied.length ? " [" + p.denied.join(", ") + "]" : ""}`); break;
-    case "gathered": log("ok", `■ gathered ${p.kept} file(s), ${p.denied} denied across ${p.gatherers} gatherer(s)`); break;
-    case "synthesized": log("", `  synthesized (revision ${p.revision})`); break;
-    case "veto": log(p.approved ? "ok" : "error", `  veto check ${p.attempt}: ${p.approved ? "APPROVED" : "VETOED"}${p.reasons.length ? " — " + p.reasons.join("; ") : ""}`); break;
-    case "revising": log("", `  revising per checker notes…`); break;
-    case "run_state":
-      $("answer").textContent = p.obsidian_markdown;
-      $("answer").style.display = "block";
-      $("vizlink").innerHTML = `<a href="${p.viz_url}" target="_blank">open graph viz</a>` +
-        (p.approved ? "" : ` <span class="err">(shipped UNAPPROVED after ${p.attempts} checks)</span>`);
-      log(p.approved ? "ok" : "error", p.approved ? `✔ approved after ${p.attempts} check(s)` : `✖ shipped UNAPPROVED after ${p.attempts} check(s)`);
+    case "run_started":
+      runId = p.run_id;
+      Object.keys(counts).forEach((k) => delete counts[k]);
       break;
-    case "error": log("error", `✖ ${p.message}`); break;
+
+    case "scanning":
+      setStage("gather");
+      $("stage-label").textContent = `${p.department}: scanning ${p.candidates} file(s)…`;
+      enqueue(() => ensureDept(p.department));
+      break;
+
+    case "file_denied":
+      enqueue(() => addDeniedNode(p.department, p.path));
+      counts[p.department] = counts[p.department] || { kept: 0, denied: [] };
+      counts[p.department].denied.push(p.path);
+      break;
+
+    case "selecting":
+      $("stage-label").textContent = `${p.department}: too large — selecting from ${p.count}…`;
+      break;
+
+    case "downloading":
+      $("stage-label").textContent = `${p.department}: downloading from ${p.provider}…`;
+      break;
+
+    case "file_read":
+      enqueue(() => addFileNode(p.department, p.path, "candidate",
+        `read — ${p.bytes.toLocaleString()} characters`));
+      break;
+
+    case "assessing":
+      $("stage-label").textContent = `${p.department}: assessing ${p.count} file(s)…`;
+      break;
+
+    case "file_assessed":
+      enqueue(() => {
+        if (p.relevant) addFileNode(p.department, p.path, "relevant", p.note);
+        else nodes.remove("file:" + p.department + "/" + p.path);
+      });
+      break;
+
+    case "kept_unassessed":
+      // Assessment failed or found nothing; the gatherer returns everything.
+      $("stage-label").textContent = `${p.department}: kept ${p.count} unassessed`;
+      break;
+
+    case "gatherer_result":
+      counts[p.department] = { kept: p.kept, denied: p.denied };
+      renderFleet(counts);
+      break;
+
+    case "gathered":
+      setStage("synthesize");
+      $("stage-label").textContent =
+        `gathered ${p.kept} file(s) from ${p.gatherers} gatherer(s), ${p.denied} denied`;
+      break;
+
+    case "synthesized":
+      setStage("veto");
+      $("stage-label").textContent = `synthesised revision ${p.revision} — checking…`;
+      break;
+
+    case "veto":
+      addVetoCard(p);
+      break;
+
+    case "revising":
+      setStage("synthesize");
+      $("stage-label").textContent = "vetoed — revising…";
+      break;
+
+    case "run_state":
+      clearStages();
+      $("stage-label").textContent = "done";
+      if (p.graph) applyFinalGraph(p.graph);
+      renderAnswer(p);
+      break;
+
+    case "error":
+      clearStages();
+      showError(p.message);
+      break;
   }
+}
+
+function addVetoCard(p) {
+  $("veto-section").hidden = false;
+  const card = document.createElement("div");
+  card.className = "veto-card " + (p.approved ? "approved" : "vetoed");
+  const head = document.createElement("div");
+  head.className = "verdict";
+  head.textContent = `check ${p.attempt} · ${p.approved ? "APPROVED" : "VETOED"}`;
+  card.appendChild(head);
+  if (p.reasons && p.reasons.length) {
+    const ul = document.createElement("ul");
+    ul.style.margin = "4px 0 0"; ul.style.paddingLeft = "16px";
+    p.reasons.forEach((r) => {
+      const li = document.createElement("li");
+      li.textContent = r;
+      ul.appendChild(li);
+    });
+    card.appendChild(ul);
+  }
+  $("veto-list").appendChild(card);
+}
+
+/* ============================ answer ============================ */
+
+function renderAnswer(p) {
+  $("answer-empty").hidden = true;
+  $("answer-head").hidden = false;
+  const badge = $("answer-badge");
+  badge.className = "badge " + (p.approved ? "approved" : "unapproved");
+  badge.textContent = p.approved ? "approved" : "shipped unapproved";
+  $("answer-meta").textContent =
+    `${p.attempts} check${p.attempts === 1 ? "" : "s"} · revision ${p.revision}`;
+  if (p.viz_url) { $("answer-viz").href = p.viz_url; $("answer-viz").hidden = false; }
+  else $("answer-viz").hidden = true;
+
+  // The answer node's `detail` is viz._answer_panel_text() — frontmatter, the
+  // heading and the Sources list already stripped by the same code the
+  // standalone page uses. Fall back to the raw markdown if it is absent.
+  const answerNode = (p.graph && p.graph.nodes || []).find((n) => n.kind === "answer");
+  renderMarkdown($("answer-body"), answerNode ? answerNode.detail : p.obsidian_markdown);
+}
+
+/* Minimal markdown → DOM. Everything is inserted with textContent, so nothing
+   the model or a source file produced is ever parsed as HTML. */
+function renderMarkdown(host, text) {
+  host.textContent = "";
+  if (!text) return;
+  const blocks = text.split(/\n{2,}/);
+  for (const raw of blocks) {
+    const block = raw.trim();
+    if (!block) continue;
+
+    const lines = block.split("\n");
+    if (lines.every((l) => /^\s*[-*]\s+/.test(l))) {
+      const ul = document.createElement("ul");
+      lines.forEach((l) => {
+        const li = document.createElement("li");
+        inline(li, l.replace(/^\s*[-*]\s+/, ""));
+        ul.appendChild(li);
+      });
+      host.appendChild(ul);
+      continue;
+    }
+
+    const heading = block.match(/^(#{1,6})\s+(.*)$/);
+    if (heading) {
+      const h = document.createElement("h4");
+      inline(h, heading[2]);
+      host.appendChild(h);
+      continue;
+    }
+
+    const para = document.createElement("p");
+    lines.forEach((l, i) => {
+      if (i) para.appendChild(document.createElement("br"));
+      inline(para, l);
+    });
+    host.appendChild(para);
+  }
+}
+
+/* Splits a line into text, **bold** runs, and [citation] chips that focus the
+   matching graph node. Text goes in as text nodes — never innerHTML. */
+function inline(host, text) {
+  const re = /(\*\*[^*]+\*\*)|(\[[^\]]+\])/g;
+  let last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) host.appendChild(document.createTextNode(text.slice(last, m.index)));
+    if (m[1]) {
+      const b = document.createElement("strong");
+      b.textContent = m[1].slice(2, -2);
+      host.appendChild(b);
+    } else {
+      const name = m[2].slice(1, -1);
+      const chip = document.createElement("button");
+      chip.className = "cite"; chip.textContent = name;
+      chip.addEventListener("click", () => focusFile(name));
+      host.appendChild(chip);
+    }
+    last = re.lastIndex;
+  }
+  if (last < text.length) host.appendChild(document.createTextNode(text.slice(last)));
+}
+
+/* Citations are collapsed to bare filenames, so match on the node's tail. */
+function focusFile(name) {
+  const hit = nodes.get().find(
+    (n) => n.kind === "file" && (n.full_label || "").split("/").pop() === name
+  );
+  if (!hit) return;
+  network.selectNodes([hit.id]);
+  network.focus(hit.id, { scale: 1.3, animation: { duration: 400 } });
+  showNode(hit);
 }
 </script>
 </body>

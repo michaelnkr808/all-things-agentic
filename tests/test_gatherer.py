@@ -12,7 +12,10 @@ async def test_gatherer_reads_engineering():
     config = load_config("config/environment.example.yaml")
     request = GatherRequest(request_id="r1", department="engineering", query="roadmap")
     result = await gather_files(request, config)
-    assert {f.path for f in result.files} == {"roadmap.md"}
+    # Asserts the invariant, not the fixture inventory: adding demo data to
+    # data/departments/ must not break the gatherer's tests.
+    assert "roadmap.md" in {f.path for f in result.files}
+    assert all(f.department == "engineering" for f in result.files)
     assert result.denied == []
 
 
@@ -28,7 +31,8 @@ async def test_gatherer_reads_finance_for_analyst():
     config = load_config("config/environment.example.yaml")
     request = GatherRequest(request_id="r3", department="finance", query="q3 budget")
     result = await gather_files(request, config)
-    assert {f.path for f in result.files} == {"q3-budget.csv"}
+    assert "q3-budget.csv" in {f.path for f in result.files}
+    assert all(f.department == "finance" for f in result.files)
     assert result.denied == []
 
 
@@ -40,8 +44,11 @@ async def test_gatherer_cannot_cross_departments():
         query="compensation bands q3 budget marketing spend",
     )
     result = await gather_files(request, config)
-    assert {f.path for f in result.files} == {"roadmap.md"}
+    assert result.files, "engineering should still return its own files"
     assert all(f.department == "engineering" for f in result.files)
+    # The query deliberately begs for HR and finance material; none of it may
+    # appear, however relevant the wording makes it look.
     joined = " ".join(f.content for f in result.files).lower()
     assert "compensation" not in joined
     assert "budgeted_usd" not in joined
+    assert "CONFIDENTIAL".lower() not in joined

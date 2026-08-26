@@ -19,7 +19,7 @@ def fleet(monkeypatch):
     calls = {"revise": 0, "check": 0}
 
     def install(verdicts: list[bool]):
-        async def plan_and_gather(prompt, config):
+        async def plan_and_gather(prompt, config, requester_role=None, on_result=None, on_progress=None):
             return [
                 GatherResult(request_id="r0", department="finance"),
                 GatherResult(request_id="r1", department="engineering"),
@@ -109,3 +109,89 @@ async def test_skips_rendering_when_out_path_is_none(fleet, monkeypatch):
     monkeypatch.setattr(pipeline.viz, "render_html", explode)
     result = await pipeline.run("q", config_path=CONFIG, out_path=None)
     assert result.verdict.approved is True
+
+
+async def test_emit_streams_the_sse_event_contract(fleet, tmp_path, monkeypatch):
+    """The server builds its SSE stream from these names — pin them here.
+
+    One veto then an approval, so the revising/synthesized pair shows up.
+    """
+    fleet([False, True])
+    monkeypatch.setattr(pipeline.viz, "render_html", lambda c, p, **kw: p)
+    events = []
+
+    result = await pipeline.run(
+        "q",
+        config_path=CONFIG,
+        out_path=tmp_path / "graph.html",
+        requester_role="analyst",
+        emit=lambda name, payload: events.append((name, payload)),
+    )
+
+    assert [n for n, _ in events] == [
+        "run_started",
+        "gathered",
+        "synthesized",
+        "veto",
+        "revising",
+        "synthesized",
+        "veto",
+        "run_state",
+    ]
+    by_name = dict(events)
+    assert by_name["run_started"]["role"] == "analyst"
+    assert by_name["gathered"]["departments"] == ["finance", "engineering"]
+    assert by_name["veto"]["approved"] is True
+    assert by_name["run_state"]["attempts"] == 2
+    assert by_name["run_state"]["viz_path"] == str(tmp_path / "graph.html")
+    assert result.viz_path == str(tmp_path / "graph.html")
+
+
+async def test_emit_reports_failures_before_raising(fleet, monkeypatch):
+    """A stream consumer sees no traceback; it needs the error as an event."""
+    fleet([True])
+
+    async def boom(prompt, config, requester_role=None, on_result=None, on_progress=None):
+        raise RuntimeError("planner exploded")
+
+    monkeypatch.setattr(pipeline.manager, "plan_and_gather", boom)
+    events = []
+
+    with pytest.raises(RuntimeError):
+        await pipeline.run(
+            "q",
+            config_path=CONFIG,
+            out_path=None,
+            emit=lambda name, payload: events.append((name, payload)),
+        )
+
+    assert events[-1][0] == "error"
+    assert "planner exploded" in events[-1][1]["message"]
+
+
+async def test_gatherer_result_events_fire_per_department(fleet, monkeypatch):
+    """on_result is threaded into the manager so denials stream live."""
+    fleet([True])
+
+    async def plan_and_gather(prompt, config, requester_role=None, on_result=None, on_progress=None):
+        results = [
+            GatherResult(request_id="r0", department="hr", denied=["comp-bands.md"]),
+        ]
+        for r in results:
+            on_result(None, r)
+        return results
+
+    monkeypatch.setattr(pipeline.manager, "plan_and_gather", plan_and_gather)
+    events = []
+
+    await pipeline.run(
+        "q",
+        config_path=CONFIG,
+        out_path=None,
+        emit=lambda name, payload: events.append((name, payload)),
+    )
+
+    gatherer_events = [p for n, p in events if n == "gatherer_result"]
+    assert gatherer_events == [
+        {"department": "hr", "kept": 0, "denied": ["comp-bands.md"], "errors": []}
+    ]

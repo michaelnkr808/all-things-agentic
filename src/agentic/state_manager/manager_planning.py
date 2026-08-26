@@ -21,6 +21,7 @@ from pydantic import BaseModel, create_model
 
 from agentic.contracts.config import AgentType, EnvironmentConfig
 from agentic.contracts.messages import GatherRequest
+from agentic.retry import with_retry
 
 
 class GatherTask(BaseModel):
@@ -64,7 +65,16 @@ def _strip_code_fences(text: str) -> str:
 
 
 async def run_planner(prompt: str, config: EnvironmentConfig) -> BaseModel:
-    """Returns an instance of the dynamically-built Plan model."""
+    """Returns an instance of the dynamically-built Plan model.
+
+    Retried through the shared policy (agentic/retry.py): the planner runs
+    first, so an unretried 503 here kills the run before a single file is
+    read — the cheapest failure to survive and the most annoying to lose.
+    """
+    return await with_retry(lambda: _plan_once(prompt, config), what="planner")
+
+
+async def _plan_once(prompt: str, config: EnvironmentConfig) -> BaseModel:
     department_names = [d.name for d in config.departments]
     Plan = build_plan_schema(department_names)
 

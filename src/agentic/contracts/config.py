@@ -65,10 +65,13 @@ class ModelConfig(BaseModel):
     client: str = "claude-fable-5"
     state_manager: str = "gemini-3.5-flash"
     gatherer: str = "gemini-3.5-flash"
-    # TEMPORARY: Opus 5 is $5/$25 per MTok vs Fable 5's $10/$50 — halves the cost
-    # of every veto check while iterating. Fable 5 is the more capable model and
-    # this is the adversarial reviewer, so switch back before the demo.
-    veto: str = "claude-opus-5"
+    veto: str = "claude-fable-5"
+
+    #: Veto models a client may switch to at run time. An allowlist, not free
+    #: text: `veto_model` arrives from the browser, and anything reaching a
+    #: model id must be a value an operator put in the config. Empty (the
+    #: default) means the frontend offers no picker at all.
+    veto_choices: list[str] = Field(default_factory=list)
 
 
 class VetoConfig(BaseModel):

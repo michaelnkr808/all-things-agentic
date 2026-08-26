@@ -27,3 +27,39 @@ class RunRequest(BaseModel):
     # NOTE: deliberately no client-supplied config path — that would let a
     # request point the pipeline at arbitrary local files. Operators set
     # AGENTIC_CONFIG_PATH instead.
+
+    # Per-run overrides (Michael, frontend controls). Every one is bounded and
+    # applied to a *copy* of the config in runs.apply_overrides — none of them
+    # can widen what a run may reach:
+    #   - the ints are clamped to the operator's configured ceiling
+    #   - veto_model must appear in models.veto_choices (an allowlist)
+    #   - departments only ever narrows; the permission gates still decide
+    #     the upper bound, so this cannot grant access to anything new
+    max_gatherers: int | None = Field(default=None, ge=1, le=64)
+    max_retries: int | None = Field(default=None, ge=0, le=10)
+    veto_model: str | None = None
+    departments: list[str] | None = None
+
+
+class FleetResponse(BaseModel):
+    """GET /api/fleet — what this principal may see, before any run.
+
+    Read-only introspection so the frontend can show the fleet, its
+    permission boundaries and its cloud backends without spending a model
+    call. `readable` is computed for the caller's authenticated role.
+    """
+
+    role: str
+    departments: list["FleetDepartment"]
+    models: dict[str, str]
+    veto_choices: list[str] = Field(default_factory=list)
+    max_gatherers: int
+    max_files_per_gatherer: int
+    max_retries: int
+
+
+class FleetDepartment(BaseModel):
+    name: str
+    readable: bool
+    storage: str | None = None  # "gcs" / "drive", or None for local files
+    file_globs: list[str] = Field(default_factory=list)
