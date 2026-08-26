@@ -1,7 +1,7 @@
 [project]
 name = "agentic"
 version = "0.1.0"
-description = "Hackathon: enterprise agent fleet — state manager, gatherers, veto checker, graph client"
+description = "Cartographer — enterprise agent fleet: state manager, permission-gated gatherers, adversarial veto checker, graph client"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.7",

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>agentic fleet</title>
+<title>Cartographer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 :root {
@@ -37,7 +37,7 @@ header {
   background: var(--panel); flex-shrink: 0;
 }
 .brand { font-weight: 600; letter-spacing: -.01em; }
-.brand .dot { color: var(--accent); }
+.dot { color: var(--accent); }
 .spacer { flex: 1; }
 .chip {
   font-size: 11px; padding: 3px 9px; border-radius: 999px;
@@ -228,7 +228,7 @@ select {
 <body>
 
 <header>
-  <span class="brand"><span class="dot">⬢</span> agentic fleet</span>
+  <span class="brand"><span class="dot">⬢</span> Cartographer</span>
   <span class="chip" id="run-mode" hidden></span>
   <span class="spacer"></span>
   <span class="chip" id="who" hidden></span>
@@ -239,8 +239,9 @@ select {
 <!-- ============ LOGIN ============ -->
 <div id="login-view">
   <form class="login-card" id="login-form">
-    <h1>Sign in</h1>
-    <p class="sub">Your role decides which departments the fleet may read.</p>
+    <h1><span class="dot">⬢</span> Cartographer</h1>
+    <p class="sub">Sign in — your role decides which departments the fleet may
+      read, and which stay locked on the map.</p>
     <input id="username" placeholder="username" autocomplete="username">
     <input id="password" type="password" placeholder="password" autocomplete="current-password">
     <button class="primary" type="submit">Sign in</button>

@@ -126,7 +126,7 @@ def test_health(client):
 def test_index_served(client):
     res = client.get("/")
     assert res.status_code == 200
-    assert "agentic fleet" in res.text
+    assert "Cartographer" in res.text
 
 
 # ---- login ----

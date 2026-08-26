@@ -1,4 +1,4 @@
-# Hackathon Plan — Agentic Enterprise Pipeline
+# Cartographer — Hackathon Plan
 
 **Category:** Fortified Enterprise Fleet (with Taskmaster elements)
 

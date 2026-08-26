@@ -214,6 +214,8 @@ _TEMPLATE = """<!DOCTYPE html>
            background: linear-gradient(#16161ee6, #16161e00); pointer-events: none; }
   header h1 { font-size: 15px; font-weight: 600; margin: 0; white-space: nowrap;
               overflow: hidden; text-overflow: ellipsis; }
+  .mark { font-size: 13px; font-weight: 600; color: #7aa2f7; flex-shrink: 0;
+          padding-right: 8px; border-right: 1px solid #2c2c3d; }
   .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px;
            background: #26263a; color: #8b8bb0; flex-shrink: 0; }
   .badge.approved { background: #1c3a2a; color: #7dd8a0; }
@@ -238,6 +240,7 @@ _TEMPLATE = """<!DOCTYPE html>
 <body>
 <script>__VIS_JS__</script>
 <header>
+  <span class="mark">⬢ Cartographer</span>
   <h1 id="title"></h1>
   <span class="badge" id="rev"></span>
   <span class="badge" id="status" hidden></span>
@@ -322,7 +325,8 @@ def render_html(
     data = json.dumps(graph).replace("</", "<\\/")
 
     page = (
-        _TEMPLATE.replace("__TITLE__", html.escape(compiled.prompt))
+        # A saved or shared page should say what it is, not just what was asked.
+        _TEMPLATE.replace("__TITLE__", html.escape(f"Cartographer — {compiled.prompt}"))
         .replace("__VIS_JS__", VENDOR_JS.read_text(encoding="utf-8"))
         .replace("__GRAPH_DATA__", data)
     )

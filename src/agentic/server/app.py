@@ -84,9 +84,9 @@ def create_app() -> FastAPI:
     load_env()  # .env in the repo root supplies the model API keys
 
     app = FastAPI(
-        title="all-things-agentic backend",
+        title="Cartographer",
         version="0.1.0",
-        description="SSE backend over the enterprise agent fleet (provisional).",
+        description="SSE backend over the Cartographer enterprise agent fleet.",
     )
 
     if os.environ.get("AGENTIC_DEV_CORS") == "1":

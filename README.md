@@ -1,7 +1,12 @@
-# all-things-agentic
+# Cartographer
+
+Maps what an enterprise knows — and what you're allowed to know — into a graph
+you can read.
 
 Enterprise agent fleet: prompt → state manager → parallel resource gatherers →
 obsidian-syntax synthesis → adversarial veto checker → interactive graph viz.
+Every file a gatherer touches is permission-gated before it reaches a model,
+and the files you were denied stay visible on the map, locked.
 
 **Read [PLAN.md](PLAN.md) first** — architecture, task ownership (Michael/Malik),
 and the contract layer rules.
