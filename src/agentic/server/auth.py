@@ -24,6 +24,7 @@ import hmac
 import os
 import secrets
 import time
+from collections import defaultdict, deque
 from pathlib import Path
 
 import jwt
@@ -46,6 +47,9 @@ class UserEntry(BaseModel):
 
     role: str
     password_hash: str
+    # Optional plaintext for GET /api/demo-mode, served only when
+    # AGENTIC_DEMO_MODE=1. Omit entirely outside local demos.
+    demo_password: str | None = None
 
 
 class UsersFile(BaseModel):
@@ -198,3 +202,36 @@ def authenticate(
     if known_roles is not None and user.role not in known_roles:
         raise UnknownRole(f"role {user.role!r} is not defined in the permissions config")
     return TokenPrincipal(username=username, role=user.role)
+
+
+class LoginRateLimiter:
+    """Sliding-window failure counter, keyed by client IP.
+
+    Deliberately stdlib-only and per-process: enough to blunt credential
+    stuffing on a single instance (the current deployment shape). Swap for a
+    shared store (Redis etc.) before running multiple replicas.
+
+    Only *failed* attempts count — successful logins clear the key so a
+    fat-fingered user is never locked out behind an attacker's noise.
+    """
+
+    def __init__(self, max_failures: int = 5, window_seconds: float = 60.0) -> None:
+        self.max_failures = max_failures
+        self.window_seconds = window_seconds
+        self._failures: dict[str, deque[float]] = defaultdict(deque)
+
+    def allow(self, key: str) -> bool:
+        """True when `key` is still under the failure budget."""
+        now = time.monotonic()
+        failures = self._failures.get(key)
+        if failures is None:
+            return True
+        while failures and now - failures[0] > self.window_seconds:
+            failures.popleft()
+        return len(failures) < self.max_failures
+
+    def record_failure(self, key: str) -> None:
+        self._failures[key].append(time.monotonic())
+
+    def record_success(self, key: str) -> None:
+        self._failures.pop(key, None)

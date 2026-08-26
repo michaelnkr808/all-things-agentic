@@ -9,7 +9,8 @@ Every file a gatherer touches is permission-gated before it reaches a model,
 and the files you were denied stay visible on the map, locked.
 
 **Read [PLAN.md](PLAN.md) first** — architecture, task ownership (Michael/Malik),
-and the contract layer rules.
+and the contract layer rules. Then [docs/STARTUP.md](docs/STARTUP.md) to get
+running; auth/security model in [docs/AUTH_SECURITY.md](docs/AUTH_SECURITY.md).
 
 ## Setup
 
@@ -25,10 +26,11 @@ export ANTHROPIC_API_KEY=...   # Claude (client + veto checker)
 Optional backend + auth (provisional — Malik, see PLAN.md):
 
 ```bash
-cp config/users.example.yaml config/users.yaml
+cp config/users.example.yaml config/users.yaml   # then replace hashes via scripts/hash_password.py
 export AGENTIC_JWT_SECRET=$(python -c "import secrets;print(secrets.token_hex(32))")
 .venv/bin/uvicorn agentic.server.app:create_app --factory --port 8000
 # login -> POST /api/login {username, password}; run -> POST /api/run (Bearer, SSE)
+# AGENTIC_DEMO_MODE=1 enables one-click demo identities (local demos only)
 ```
 
 ## Layout
