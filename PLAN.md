@@ -231,6 +231,9 @@ the gatherers actually enforce.
 
 ### Server setup
 
+Full walkthrough in [docs/STARTUP.md](docs/STARTUP.md); auth model and the
+2026-08-26 hardening pass in [docs/AUTH_SECURITY.md](docs/AUTH_SECURITY.md).
+
 ```bash
 cp config/users.example.yaml config/users.yaml   # then replace demo hashes:
 python scripts/hash_password.py                  # prompts securely
@@ -239,8 +242,15 @@ AGENTIC_JWT_SECRET=$AGENTIC_JWT_SECRET .venv/bin/uvicorn agentic.server.app:crea
 ```
 
 Optional env: `AGENTIC_CONFIG_PATH` (default `config/environment.yaml`),
-`AGENTIC_USERS_PATH`, `AGENTIC_GRAPHS_DIR`, `AGENTIC_JWT_TTL_HOURS`
-(default 12), `AGENTIC_DEV_CORS=1` (dev frontend on another origin).
+`AGENTIC_USERS_PATH`, `AGENTIC_GRAPHS_DIR` (default `out/graphs`),
+`AGENTIC_JWT_TTL_HOURS` (default 12), `AGENTIC_DEV_CORS=1` (dev frontend on
+another origin — never in anything exposed), `AGENTIC_DEMO_MODE=1` (one-click
+demo identities, local demos only).
+
+Security posture: no credentials ship in static assets or example configs;
+`/api/demo-mode` serves demo identities only when explicitly enabled;
+`/api/login` is rate-limited per IP (5 failures/min → 429). Demo passwords
+live only as `demo_password:` fields in the gitignored `users.yaml`.
 
 Demo beats: log in as alice (analyst) vs root (admin), ask about HR comp
 bands — analyst sees live denials in the timeline, admin gets the answer;

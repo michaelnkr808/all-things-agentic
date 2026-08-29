@@ -1,4 +1,4 @@
-# Canonical users config (provisional — Malik). Copy to users.yaml and edit.
+# Canonical users config template (provisional — Malik). Copy and edit.
 #   cp config/users.example.yaml config/users.yaml
 #
 # Schema: agentic.server.auth (provisional)
@@ -11,14 +11,18 @@
 # principal for every permission gate; it is never taken from request
 # bodies or model output.
 #
-# DEMO ONLY: these example passwords are public. Replace before any real use.
+# No example passwords ship in this file. Generate your own hashes.
+#
+# `demo_password` is OPTIONAL plaintext consumed only by GET /api/demo-mode,
+# which serves it ONLY when AGENTIC_DEMO_MODE=1. Omit it unless you are
+# running a local demo; never commit a real users.yaml.
 
 users:
   alice:
     role: analyst
-    password_hash: pbkdf2_sha256$390000$2706f5a19c6fd99af80cdb6bb767d595$26c1531368bf11c8ccfb9d902fe9728ed4d47fcbb64f88e3cfdfd013940f493f
-    # demo password: analyst-demo-pass
+    password_hash: <run scripts/hash_password.py>
+    # demo_password: only-if-local-demo
   root:
     role: admin
-    password_hash: pbkdf2_sha256$390000$09ae3a0a4c7c12193a475d35b70def0a$4b9d4bc6c45bd118733e567d7ebdf863f1c6fc1a2da7defb7e49f6561edea5e5
-    # demo password: admin-demo-pass
+    password_hash: <run scripts/hash_password.py>
+    # demo_password: only-if-local-demo

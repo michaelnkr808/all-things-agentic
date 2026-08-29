@@ -28,7 +28,7 @@ import os
 import uuid
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -101,12 +101,49 @@ def create_app() -> FastAPI:
             allow_headers=["*"],
         )
 
+    # Per-IP login failure limiter, one per app instance. Per-process is
+    # acceptable at the current single-instance shape; see LoginRateLimiter.
+    login_limiter = auth.LoginRateLimiter()
+
     @app.get("/health")
     def health() -> dict:
         return {"status": "ok"}
 
+    @app.get("/api/demo-mode")
+    def demo_mode() -> dict:
+        """Demo identity autofill, strictly opt-in.
+
+        Returns credentials only when AGENTIC_DEMO_MODE=1 AND the operator
+        put `demo_password` entries in users.yaml. Off by default so a
+        deployed instance never serves passwords to view-source.
+        """
+        if os.environ.get("AGENTIC_DEMO_MODE") != "1":
+            return {"enabled": False, "identities": []}
+        try:
+            users_cfg = auth.load_users(
+                _env_path("AGENTIC_USERS_PATH", auth.DEFAULT_USERS_CONFIG)
+            )
+        except ConfigError as e:
+            raise HTTPException(503, detail=str(e)) from None
+        identities = [
+            {
+                "username": name,
+                "role": entry.role,
+                "password": entry.demo_password,
+            }
+            for name, entry in users_cfg.users.items()
+            if entry.demo_password
+        ]
+        return {"enabled": True, "identities": identities}
+
     @app.post("/api/login", response_model=TokenResponse)
-    def login(body: LoginRequest) -> TokenResponse:
+    def login(body: LoginRequest, request: Request) -> TokenResponse:
+        client_ip = request.client.host if request.client else "unknown"
+        if not login_limiter.allow(client_ip):
+            raise HTTPException(
+                429, detail="too many failed logins; try again shortly"
+            )
+
         try:
             users_cfg = auth.load_users(
                 _env_path("AGENTIC_USERS_PATH", auth.DEFAULT_USERS_CONFIG)
@@ -121,10 +158,13 @@ def create_app() -> FastAPI:
                 users_cfg, body.username, body.password, known_roles=set(perms.roles)
             )
         except auth.InvalidCredentials:
+            login_limiter.record_failure(client_ip)
             raise HTTPException(401, detail="invalid credentials") from None
         except auth.UnknownRole as e:
+            login_limiter.record_failure(client_ip)
             raise HTTPException(403, detail=str(e)) from None
 
+        login_limiter.record_success(client_ip)
         return TokenResponse(
             access_token=auth.issue_token(principal, secret),
             username=principal.username,

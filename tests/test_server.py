@@ -148,6 +148,71 @@ def test_login_unknown_user_is_also_401(client):
     assert res.status_code == 401
 
 
+def test_login_rate_limited_after_repeated_failures(client):
+    for _ in range(5):
+        res = client.post("/api/login", json={"username": "alice", "password": "nope"})
+        assert res.status_code == 401
+    res = client.post("/api/login", json={"username": "alice", "password": "nope"})
+    assert res.status_code == 429
+    # even correct credentials are refused while the window is hot
+    assert client.post(
+        "/api/login", json={"username": "alice", "password": "wonderland"}
+    ).status_code == 429
+
+
+# ---- demo mode ----
+
+def test_demo_mode_disabled_by_default(client):
+    data = client.get("/api/demo-mode").json()
+    assert data == {"enabled": False, "identities": []}
+
+
+def test_demo_mode_serves_credentials_only_when_enabled(client, monkeypatch, tmp_path):
+    users = tmp_path / "users.yaml"
+    users.write_text(
+        "users:\n"
+        "  alice:\n"
+        "    role: analyst\n"
+        f"    password_hash: {auth.hash_password('wonderland')}\n"
+        "    demo_password: wonderland\n"  # must match the hashed password
+        "  root:\n"
+        "    role: admin\n"
+        f"    password_hash: {auth.hash_password('toor')}\n"  # no demo_password
+    )
+    monkeypatch.setenv("AGENTIC_USERS_PATH", str(users))
+    monkeypatch.setenv("AGENTIC_DEMO_MODE", "1")
+
+    data = client.get("/api/demo-mode").json()
+    assert data["enabled"] is True
+    # only identities with a demo_password are served; the admin is not
+    assert data["identities"] == [
+        {"username": "alice", "role": "analyst", "password": "wonderland"}
+    ]
+
+    # and the credentials actually work at /api/login
+    login = client.post(
+        "/api/login", json={"username": "alice", "password": "wonderland"}
+    )
+    assert login.status_code == 200
+
+
+def test_demo_mode_without_flag_never_leaks_credentials(client, monkeypatch, tmp_path):
+    """Even with demo_passwords present, no flag means nothing is served."""
+    users = tmp_path / "users.yaml"
+    users.write_text(
+        "users:\n"
+        "  alice:\n"
+        "    role: analyst\n"
+        f"    password_hash: {auth.hash_password('wonderland')}\n"
+        "    demo_password: wonderland\n"
+    )
+    monkeypatch.setenv("AGENTIC_USERS_PATH", str(users))
+    monkeypatch.delenv("AGENTIC_DEMO_MODE", raising=False)
+
+    data = client.get("/api/demo-mode").json()
+    assert "wonderland" not in str(data)
+
+
 # ---- auth gate on /api/run ----
 
 def test_run_without_token_is_401(client):

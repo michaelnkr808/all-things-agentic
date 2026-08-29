@@ -153,3 +153,56 @@ def test_authenticate_without_known_roles_skips_role_check(users_file):
         role="ghost-role", password_hash=auth.hash_password("pw")
     )
     assert auth.authenticate(users_file, "bob", "pw").role == "ghost-role"
+
+
+# ---- demo_password field ----
+
+def test_demo_password_is_optional(users_file):
+    assert users_file.users["alice"].demo_password is None
+
+
+def test_demo_password_round_trips(tmp_path):
+    p = tmp_path / "users.yaml"
+    p.write_text(
+        "users:\n"
+        "  alice:\n"
+        "    role: analyst\n"
+        f"    password_hash: {auth.hash_password('wonderland')}\n"
+        "    demo_password: demo-only\n"
+    )
+    assert auth.load_users(p).users["alice"].demo_password == "demo-only"
+
+
+# ---- login rate limiter ----
+
+def test_limiter_allows_under_budget():
+    limiter = auth.LoginRateLimiter(max_failures=3, window_seconds=60)
+    assert limiter.allow("ip1")
+    for _ in range(2):
+        limiter.record_failure("ip1")
+    assert limiter.allow("ip1")
+
+
+def test_limiter_blocks_after_max_failures():
+    limiter = auth.LoginRateLimiter(max_failures=3, window_seconds=60)
+    for _ in range(3):
+        limiter.record_failure("ip1")
+    assert not limiter.allow("ip1")
+    # other keys are unaffected
+    assert limiter.allow("ip2")
+
+
+def test_limiter_window_slides():
+    limiter = auth.LoginRateLimiter(max_failures=1, window_seconds=60)
+    limiter.record_failure("ip1")
+    assert not limiter.allow("ip1")
+    # age the failure out of the window
+    limiter._failures["ip1"][0] -= 61
+    assert limiter.allow("ip1")
+
+
+def test_success_clears_failures():
+    limiter = auth.LoginRateLimiter(max_failures=1, window_seconds=60)
+    limiter.record_failure("ip1")
+    limiter.record_success("ip1")
+    assert limiter.allow("ip1")

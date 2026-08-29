@@ -247,14 +247,10 @@ select {
     <input id="username" placeholder="username" autocomplete="username">
     <input id="password" type="password" placeholder="password" autocomplete="current-password">
     <button class="primary" type="submit">Sign in</button>
-    <div class="demo-users">
+    <div class="demo-users" id="demo-users" hidden>
       <div class="label">demo identities</div>
-      <button class="demo-user" type="button" data-u="alice" data-p="analyst-demo-pass">
-        <b>alice</b> · analyst — engineering + finance
-      </button>
-      <button class="demo-user" type="button" data-u="root" data-p="admin-demo-pass">
-        <b>root</b> · admin — everything, including HR
-      </button>
+      <!-- Buttons render only when the server reports demo mode (no
+           credentials are ever shipped in this file). -->
     </div>
     <div id="login-err" hidden></div>
   </form>
@@ -363,6 +359,9 @@ let network = null, nodes = null, edges = null;
 let deptColor = {};          // department -> hex
 let runId = null, running = false;
 let queue = [], draining = false;   // staggered node insertion
+// username -> password, populated only when the server enables demo mode
+// (GET /api/demo-mode). Empty in any real deployment.
+let demoPasswords = {};
 
 /* ============================ auth ============================ */
 
@@ -395,12 +394,39 @@ $("login-form").addEventListener("submit", async (e) => {
   }
 });
 
-document.querySelectorAll(".demo-user").forEach((b) => {
-  b.addEventListener("click", () => {
-    $("username").value = b.dataset.u;
-    $("password").value = b.dataset.p;
-    $("login-form").requestSubmit();
-  });
+// Demo identity buttons are rendered from the server's answer so no
+// credentials live in this file. Without AGENTIC_DEMO_MODE=1 (and
+// demo_password entries in users.yaml) the section simply stays hidden.
+fetch("/api/demo-mode").then((res) => res.json()).then((data) => {
+  if (!data || !data.enabled || !Array.isArray(data.identities)) return;
+  const box = $("demo-users");
+  for (const id of data.identities) {
+    if (!id.username || !id.password) continue;
+    demoPasswords[id.username] = id.password;
+    const b = document.createElement("button");
+    b.className = "demo-user";
+    b.type = "button";
+    b.dataset.u = id.username;
+    const label = document.createElement("b");
+    label.textContent = id.username;
+    b.appendChild(label);
+    b.appendChild(document.createTextNode(
+      " · " + (id.role || "?") + " — one-click demo login"
+    ));
+    box.appendChild(b);
+  }
+  if (Object.keys(demoPasswords).length) box.hidden = false;
+}).catch(() => {}); // demo mode stays hidden on any failure
+
+// Event delegation: buttons are created after load, so listen on the box.
+$("demo-users").addEventListener("click", (e) => {
+  const b = e.target.closest(".demo-user");
+  if (!b) return;
+  const password = demoPasswords[b.dataset.u];
+  if (!password) return;
+  $("username").value = b.dataset.u;
+  $("password").value = password;
+  $("login-form").requestSubmit();
 });
 
 $("logout").addEventListener("click", () => {
@@ -410,14 +436,15 @@ $("logout").addEventListener("click", () => {
 });
 
 // The demo beat: same question, other identity. Keeps the prompt so the
-// permission difference is the only thing that changed.
+// permission difference is the only thing that changed. Only offered when
+// the other identity's demo password was served by /api/demo-mode.
 $("switch-user").addEventListener("click", async () => {
-  const other = me.username === "alice"
-    ? { u: "root", p: "admin-demo-pass" }
-    : { u: "alice", p: "analyst-demo-pass" };
+  const otherUser = me.username === "alice" ? "root" : "alice";
+  const password = demoPasswords[otherUser];
+  if (!password) { showError("switch user is only available in demo mode"); return; }
   const keep = $("prompt").value;
   try {
-    await login(other.u, other.p);
+    await login(otherUser, password);
     await enterApp();
     $("prompt").value = keep;
   } catch (e) { showError(e.message); }
@@ -428,7 +455,11 @@ $("switch-user").addEventListener("click", async () => {
 async function enterApp() {
   $("login-view").hidden = true;
   $("app-view").hidden = false;
-  $("who").hidden = false; $("switch-user").hidden = false; $("logout").hidden = false;
+  const otherUser = me.username === "alice" ? "root" : "alice";
+  $("who").hidden = false; $("logout").hidden = false;
+  // switch-user is a demo-mode affordance; it needs the other identity's
+  // password, which only exists when /api/demo-mode served it.
+  $("switch-user").hidden = !demoPasswords[otherUser];
   $("who").textContent = `${me.username} · ${me.role}`;
   $("who").className = "chip role-" + me.role;
   await loadFleet();
