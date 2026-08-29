@@ -45,6 +45,9 @@ STATIC_DIR = Path(__file__).parent / "static"
 # The graph library is vendored beside viz.py; the standalone pages inline it,
 # the app loads it once from here and lets the browser cache it.
 VENDOR_DIR = Path(viz.__file__).parent / "vendor"
+# The project page (also published via GitHub Pages from docs/). Served here
+# too so the running demo can link to the story without leaving localhost.
+DOCS_DIR = Path(__file__).resolve().parents[3] / "docs"
 
 _SSE_HEADERS = {
     "Cache-Control": "no-cache",
@@ -228,6 +231,13 @@ def create_app() -> FastAPI:
         @app.get("/", include_in_schema=False)
         def index() -> FileResponse:
             return FileResponse(STATIC_DIR / "index.html")
+
+    if (DOCS_DIR / "index.html").is_file():
+
+        @app.get("/about", include_in_schema=False)
+        def about() -> FileResponse:
+            """The project page. Self-contained, no API calls, always works."""
+            return FileResponse(DOCS_DIR / "index.html")
 
     graphs_dir = Path(_env_path("AGENTIC_GRAPHS_DIR", str(runs.GRAPHS_DIR)))
     graphs_dir.mkdir(parents=True, exist_ok=True)

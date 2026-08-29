@@ -3,6 +3,9 @@
 Maps what an enterprise knows — and what you're allowed to know — into a graph
 you can read.
 
+**Project page:** [`docs/index.html`](docs/index.html), published with GitHub
+Pages, and served by the running app at `/about`.
+
 Enterprise agent fleet: prompt → state manager → parallel resource gatherers →
 obsidian-syntax synthesis → adversarial veto checker → interactive graph viz.
 Every file a gatherer touches is permission-gated before it reaches a model,

@@ -1,0 +1,1303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Cartographer is an enterprise agent fleet that answers across an organization's departments and draws the permission boundaries it hit, locked, on the map.">
+<meta name="theme-color" content="#0C1014">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%97%BA%EF%B8%8F</text></svg>">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Cartographer">
+<meta property="og:site_name" content="Cartographer">
+<meta property="og:description" content="An enterprise agent fleet that answers across departments and draws the permission boundaries it hit, locked, on the map.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Cartographer">
+<meta name="twitter:description" content="An enterprise agent fleet that answers across departments and draws the permission boundaries it hit, locked, on the map.">
+<title>Cartographer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400..700&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@1,6..72,200..500&display=swap">
+
+<style>
+/* tokens. Dark first: the product itself is a dark graph canvas, so :root
+   carries the complete dark palette and light is the deliberate second theme. */
+:root {
+  --ground:    #0C1014;
+  --surface:   #12171E;
+  --raised:    #171E27;
+  --line:      #1E2732;
+  --line-soft: #161D26;
+  --text:      #C8D2DE;
+  --muted:     #7A8798;
+  --faint:     #4E5A6B;
+  --accent:    #7AA2F7;
+  --accent-dim:#2B3A57;
+  --advers:    #F7768E;
+  --locked:    #5A6272;
+  --ok:        #7DD8A0;
+  --answer:    #E6E6FA;
+  --answer-ring:#A9A1E1;
+
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-quote:   "Newsreader", Georgia, "Times New Roman", serif;
+  --f-mono:    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --measure: 64ch;
+  --gutter: clamp(1.25rem, 4vw, 3.5rem);
+  --hero-len: 300vh;
+  --traverse-len: 480vh;
+  --gate-len: 340vh;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ground:    #EEF2F7;
+    --surface:   #FFFFFF;
+    --raised:    #F7F9FC;
+    --line:      #D3DCE8;
+    --line-soft: #E4EAF2;
+    --text:      #101720;
+    --muted:     #556374;
+    --faint:     #8492A4;
+    --accent:    #2F5FC4;
+    --accent-dim:#C9D8F5;
+    --advers:    #BE3352;
+    --locked:    #8C99A9;
+    --ok:        #1F7A4C;
+    --answer:    #6F63C4;
+    --answer-ring:#4A3F9B;
+  }
+}
+:root[data-theme="light"] {
+  --ground:    #EEF2F7;
+  --surface:   #FFFFFF;
+  --raised:    #F7F9FC;
+  --line:      #D3DCE8;
+  --line-soft: #E4EAF2;
+  --text:      #101720;
+  --muted:     #556374;
+  --faint:     #8492A4;
+  --accent:    #2F5FC4;
+  --accent-dim:#C9D8F5;
+  --advers:    #BE3352;
+  --locked:    #8C99A9;
+  --ok:        #1F7A4C;
+  --answer:    #6F63C4;
+  --answer-ring:#4A3F9B;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background-color: var(--ground);
+  background-image:
+    linear-gradient(to right, var(--line-soft) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--line-soft) 1px, transparent 1px);
+  background-size: 72px 72px;
+  color: var(--text);
+  font-family: var(--f-display);
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+h1, h2, h3 { text-wrap: balance; margin: 0; font-weight: 600; letter-spacing: -0.018em; }
+p { margin: 0; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+.wrap { max-width: 1140px; margin: 0 auto; padding: 0 var(--gutter); }
+.plate { border-top: 1px solid var(--line); padding: clamp(3rem, 7vw, 5.5rem) 0; }
+.plate-grid { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 3.5rem); }
+@media (max-width: 800px) { .plate-grid { grid-template-columns: 1fr; gap: 1.25rem; } }
+
+/* marginal label names the actual module in the repo: information, not ornament */
+.margin-ref { font-family: var(--f-mono); font-size: 11px; line-height: 1.6; color: var(--faint); display: flex; flex-direction: column; gap: 6px; }
+.margin-ref .idx { color: var(--accent); letter-spacing: 0.08em; }
+.margin-ref .path { word-break: break-all; }
+
+h2 { font-size: clamp(1.5rem, 3.2vw, 2.1rem); margin-bottom: 0.9rem; }
+.lede { color: var(--muted); max-width: var(--measure); font-size: 1.02rem; }
+
+/* hero */
+.hero { padding: clamp(3rem, 8vw, 6rem) 0 clamp(2.5rem, 6vw, 4rem); }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(2rem, 5vw, 4rem); align-items: center; }
+@media (max-width: 940px) { .hero-grid { grid-template-columns: 1fr; } }
+
+.eyebrow {
+  font-family: var(--f-mono); font-size: 11.5px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--accent);
+  display: inline-flex; align-items: center; gap: 0.6em;
+  border: 1px solid var(--accent-dim); padding: 5px 11px; border-radius: 2px;
+}
+.wordmark { font-size: clamp(2.9rem, 8.5vw, 5.1rem); font-weight: 700; letter-spacing: -0.035em; line-height: 0.98; margin: 1.5rem 0 0; }
+.wordmark .glyph { color: var(--accent); font-weight: 400; }
+.thesis {
+  font-family: var(--f-quote); font-style: italic;
+  font-size: clamp(1.25rem, 2.7vw, 1.65rem); line-height: 1.42;
+  margin: 1.4rem 0 0; max-width: 32ch;
+}
+.thesis em { font-style: italic; color: var(--accent); }
+.hero p.sub { margin-top: 1.2rem; color: var(--muted); max-width: 46ch; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 2rem; }
+.btn {
+  font-family: var(--f-mono); font-size: 13px; letter-spacing: 0.02em; text-decoration: none;
+  padding: 11px 18px; border-radius: 2px; border: 1px solid var(--line);
+  color: var(--text); background: var(--surface);
+  transition: border-color .18s, color .18s, background .18s;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--ground); font-weight: 500; }
+.btn.primary:hover { filter: brightness(1.12); color: var(--ground); }
+
+.map-frame { position: relative; border: 1px solid var(--line); background: var(--surface); border-radius: 3px; overflow: hidden; }
+.map-frame canvas { display: block; width: 100%; height: 380px; }
+.map-caption {
+  position: absolute; left: 12px; bottom: 10px; right: 12px;
+  font-family: var(--f-mono); font-size: 10.5px; color: var(--faint);
+  display: flex; justify-content: space-between; gap: 1rem; pointer-events: none;
+}
+.corner { position: absolute; top: 10px; right: 12px; font-family: var(--f-mono); font-size: 10.5px; color: var(--faint); letter-spacing: 0.1em; text-transform: uppercase; }
+
+
+/* ── hero: scroll orbits the camera while the map lifts off the page ──── */
+.hero-rail { height: var(--hero-len); }
+.hero-sticky {
+  position: sticky; top: 0; height: 100vh; height: 100svh;
+  display: grid; align-content: center; overflow: hidden;
+}
+.hero-sticky .map-frame canvas { height: min(60vh, 540px); }
+.bearing { font-variant-numeric: tabular-nums; }
+@media (max-height: 720px) {
+  .hero-sticky .thesis { font-size: 1.15rem; }
+  .hero-sticky p.sub { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --hero-len: 0vh; }
+  .hero-sticky { position: static; height: auto; padding: clamp(3rem,7vw,5rem) 0; }
+  .hero-sticky p.sub { display: block; }
+}
+
+/* ── the traverse: scroll drives the map being drawn ──────────────────── */
+.traverse { position: relative; border-top: 1px solid var(--line); }
+.traverse-rail { height: var(--traverse-len); }
+.traverse-sticky {
+  position: sticky; top: 0; height: 100vh; height: 100svh;
+  display: grid; align-items: center; overflow: hidden;
+}
+.traverse-grid {
+  display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem); align-items: center; width: 100%;
+}
+@media (max-width: 900px) { .traverse-grid { grid-template-columns: 1fr; gap: 1.25rem; } }
+
+.traverse-head { position: absolute; top: clamp(1.5rem, 4vh, 3rem); left: 0; right: 0; }
+.traverse-head .wrap { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+.traverse-head h2 { font-size: clamp(1.15rem, 2.4vw, 1.6rem); margin: 0; }
+.traverse-head .count { font-family: var(--f-mono); font-size: 11.5px; color: var(--faint); letter-spacing: 0.1em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+
+/* station list: a vertical survey rail with a filled progress spine */
+.stations { position: relative; padding-left: 1.6rem; }
+.spine { position: absolute; left: 0; top: 4px; bottom: 4px; width: 1px; background: var(--line); }
+.spine-fill { position: absolute; left: 0; top: 4px; width: 1px; background: var(--accent); height: 0; }
+.station { padding: 0.55rem 0; opacity: 0.26; transition: opacity .4s ease; }
+.station.is-active { opacity: 1; }
+.station .n { font-family: var(--f-mono); font-size: 11px; color: var(--accent); letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
+.station h3 { font-size: 1.02rem; margin: 0.1rem 0 0; }
+.station p { color: var(--muted); font-size: 0.92rem; max-width: 44ch; margin-top: 0.3rem; max-height: 0; overflow: hidden; transition: max-height .45s ease, margin-top .45s ease; }
+.station.is-active p { max-height: 9rem; }
+.station .model { font-family: var(--f-mono); font-size: 10.5px; color: var(--faint); display: block; margin-top: 0.35rem; }
+@media (max-width: 900px) {
+  .station { display: none; }
+  .station.is-active { display: block; }
+  .stations { padding-left: 0; min-height: 12rem; }
+  .spine, .spine-fill { display: none; }
+}
+
+.survey-frame { position: relative; border: 1px solid var(--line); background: var(--surface); border-radius: 3px; overflow: hidden; }
+.survey-frame canvas { display: block; width: 100%; height: min(62vh, 520px); }
+.survey-hud {
+  position: absolute; inset: auto 12px 10px 12px; display: flex;
+  justify-content: space-between; gap: 1rem; pointer-events: none;
+  font-family: var(--f-mono); font-size: 10.5px; color: var(--faint);
+}
+.survey-progress { position: absolute; top: 0; left: 0; height: 2px; background: var(--accent); width: 0; }
+.survey-stage {
+  position: absolute; top: 10px; left: 12px; font-family: var(--f-mono);
+  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent);
+}
+.survey-verdict {
+  position: absolute; top: 10px; right: 12px; font-family: var(--f-mono);
+  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ok); opacity: 0; transition: opacity .4s ease;
+}
+.survey-verdict.on { opacity: 1; }
+
+/* legend */
+.legend { display: grid; gap: 0; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+.legend-row { display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 1rem; align-items: start; padding: 1rem 1.15rem; background: var(--surface); border-bottom: 1px solid var(--line); }
+.legend-row:last-child { border-bottom: 0; }
+.legend-row.is-locked { background: var(--raised); }
+.swatch { display: grid; place-items: center; height: 26px; }
+.legend-name { font-weight: 600; font-size: 0.95rem; }
+.legend-name .kind { font-family: var(--f-mono); font-size: 11px; color: var(--faint); font-weight: 400; margin-left: 0.55em; }
+.legend-desc { color: var(--muted); font-size: 0.92rem; margin-top: 2px; }
+
+/* cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(248px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 3px; }
+.card { background: var(--surface); padding: 1.35rem 1.3rem; }
+.card h3 { font-size: 0.98rem; margin-bottom: 0.45rem; }
+.card p { color: var(--muted); font-size: 0.9rem; }
+.card .tick { color: var(--accent); font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.1em; display: block; margin-bottom: 0.6rem; text-transform: uppercase; }
+.card.adversary .tick { color: var(--advers); }
+
+/* transcript */
+.transcript { border: 1px solid var(--line); border-radius: 3px; background: var(--surface); font-family: var(--f-mono); font-size: 12.5px; line-height: 1.85; overflow-x: auto; }
+.transcript-head { padding: 9px 14px; border-bottom: 1px solid var(--line); color: var(--faint); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.transcript pre { margin: 0; padding: 14px; white-space: pre; }
+.ev { color: var(--accent); }
+.ev-deny { color: var(--locked); }
+.ev-ok { color: var(--ok); }
+.dim { color: var(--faint); }
+
+.pull { font-family: var(--f-quote); font-style: italic; font-size: clamp(1.1rem, 2.3vw, 1.4rem); line-height: 1.5; border-left: 2px solid var(--accent); padding-left: 1.1rem; margin-top: 1.6rem; max-width: 52ch; }
+.pull cite { display: block; font-family: var(--f-mono); font-style: normal; font-size: 11px; color: var(--faint); margin-top: 0.7rem; letter-spacing: 0.04em; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1.5rem 1rem; margin-top: 0.4rem; }
+.stat .n { font-size: 1.85rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.stat .l { font-family: var(--f-mono); font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.09em; margin-top: 0.1rem; }
+
+.stack-list { display: grid; gap: 0; }
+.stack-row { display: grid; grid-template-columns: 160px minmax(0,1fr); gap: 1rem; padding: 0.8rem 0; border-bottom: 1px solid var(--line-soft); align-items: baseline; }
+.stack-row:last-child { border-bottom: 0; }
+.stack-row dt { font-family: var(--f-mono); font-size: 11.5px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.07em; }
+.stack-row dd { margin: 0; font-size: 0.94rem; }
+.stack-row dd .note { display: block; color: var(--muted); font-size: 0.89rem; margin-top: 0.1rem; }
+@media (max-width: 620px) { .stack-row { grid-template-columns: 1fr; gap: 0.15rem; } }
+
+footer { border-top: 1px solid var(--line); padding: 2.5rem 0 3.5rem; }
+.foot { display: flex; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; align-items: center; }
+.foot .mark { font-weight: 600; letter-spacing: -0.02em; }
+.foot .mark span { color: var(--accent); font-weight: 400; }
+.foot .meta { font-family: var(--f-mono); font-size: 11.5px; color: var(--faint); }
+
+/* Reduced motion: no pinning, no scrubbing. The map is shown finished and
+   every station is legible at once. */
+@media (prefers-reduced-motion: reduce) {
+  :root { --traverse-len: 0vh; }
+  .traverse-sticky { position: static; height: auto; padding: clamp(3rem,7vw,5rem) 0; }
+  .traverse-head { position: static; margin-bottom: 2rem; }
+  .station { opacity: 1; display: block; }
+  .station p { max-height: none; }
+  .spine-fill { height: 100% !important; }
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+/* ── the gate: a cross-section two requests descend through ───────────── */
+.gate-rail { height: var(--gate-len); }
+.gate-sticky {
+  position: sticky; top: 0; height: 100vh; height: 100svh;
+  display: grid; align-content: center; gap: clamp(1rem, 3vh, 2rem);
+  overflow: hidden;
+}
+.gate-intro { max-width: 62ch; }
+.gate-intro h2 { margin-bottom: 0.6rem; }
+.stack-diagram {
+  position: relative; border: 1px solid var(--line); border-radius: 3px;
+  background: var(--surface); overflow: hidden;
+}
+.tray {
+  padding: 0.7rem 1rem; background: var(--raised);
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--faint);
+  display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+}
+.tray-in { border-bottom: 1px solid var(--line); }
+.tray-out { border-top: 1px solid var(--line); }
+.tray-out .arrived { color: var(--accent); text-transform: none; letter-spacing: 0; font-size: 12px; opacity: 0; transition: opacity .35s; }
+.tray-out .arrived.on { opacity: 1; }
+
+.gate-layer {
+  display: grid; grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.9rem; align-items: baseline;
+  padding: 0.85rem 1rem; border-bottom: 1px dashed var(--line);
+  opacity: 0.3; transition: opacity .35s ease, background .35s ease;
+}
+.gate-layer:last-of-type { border-bottom: 0; }
+.gate-layer.is-open { opacity: 1; background: linear-gradient(90deg, var(--accent-dim) 0%, transparent 55%); }
+.gate-layer .g-n { font-family: var(--f-mono); font-size: 11px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.gate-layer h3 { font-size: 0.95rem; }
+.gate-layer p { color: var(--muted); font-size: 0.86rem; margin-top: 0.1rem; }
+@media (max-width: 700px) {
+  .gate-layer p { display: none; }
+  .gate-layer { padding: 0.7rem 0.85rem; }
+}
+
+/* the two travelling requests */
+.chip {
+  position: absolute; top: 0; left: 0; z-index: 2;
+  font-family: var(--f-mono); font-size: 11px; white-space: nowrap;
+  padding: 4px 9px; border-radius: 2px; pointer-events: none;
+  border: 1px solid var(--accent); color: var(--accent); background: var(--ground);
+  will-change: transform;
+}
+.chip.restricted { border-style: dashed; border-color: var(--locked); color: var(--locked); }
+.chip.blocked::after { content: " 🔒"; }
+.gate-caption {
+  font-family: var(--f-mono); font-size: 11.5px; color: var(--faint);
+  min-height: 1.4em; text-align: center;
+}
+.gate-caption b { color: var(--text); font-weight: 500; }
+
+/* ── receipts: the log streams itself as it passes the viewport ───────── */
+.tline { display: block; opacity: 0.14; transition: opacity .28s ease; }
+.tline.shown { opacity: 1; }
+.tline.cursor::after {
+  content: "▋"; color: var(--accent); margin-left: 0.4ch;
+  animation: blink 1s steps(2, start) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+.stat .n { transition: none; }
+
+@media (max-height: 760px) {
+  .gate-layer p { display: none; }
+  .gate-layer { padding: 0.62rem 1rem; }
+  .gate-intro .lede { font-size: 0.92rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --gate-len: 0vh; }
+  .gate-sticky { position: static; height: auto; padding: clamp(3rem,7vw,5rem) 0; }
+  .gate-layer { opacity: 1; }
+  .chip { display: none; }
+  .tline { opacity: 1; }
+}
+
+
+/* Standalone reset. The artifact host supplied one; a plain page does not,
+   and these are the elements whose UA defaults would otherwise reappear. */
+html { -webkit-text-size-adjust: 100%; }
+blockquote, figure, dl, dd, ul, ol, pre { margin: 0; }
+.pull { margin-left: 0; margin-right: 0; }
+img, svg, canvas { max-width: 100%; }
+</style>
+</head>
+<body>
+<section class="hero-scene">
+  <div class="hero-rail">
+    <div class="hero-sticky">
+      <div class="wrap hero">
+        <div class="hero-grid">
+          <div>
+            <span class="eyebrow">Fortified Enterprise Fleet</span>
+            <h1 class="wordmark"><span class="glyph">⬢</span> Cartographer</h1>
+            <p class="thesis">Most systems quietly drop the files you are not cleared to see. Cartographer <em>draws them</em>, locked, on the map.</p>
+            <p class="sub">An agent fleet that reads across an organization's departments, answers in cited prose, and hands back the map it worked from: every source it used, and every door it found closed.</p>
+            <div class="actions">
+              <a class="btn primary" href="https://github.com/michaelnkr808/all-things-agentic">Source on GitHub</a>
+              <a class="btn" href="#traverse">How it works</a>
+            </div>
+          </div>
+
+          <div class="map-frame">
+            <canvas id="hero-map" aria-label="A three-dimensional graph of one Cartographer run. Scrolling orbits the camera around it: an answer node linked to six cited files across two departments, with four HR files drawn locked and dashed."></canvas>
+            <span class="corner">Plate I · one run</span>
+            <div class="map-caption">
+              <span class="bearing" id="hero-bearing">Bearing 000°</span>
+              <span>engineering · finance · hr</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- The traverse. Scroll position drives the map being surveyed into existence. -->
+<section class="traverse" id="traverse">
+  <div class="traverse-rail">
+    <div class="traverse-sticky">
+      <div class="traverse-head">
+        <div class="wrap">
+          <h2>One prompt, six stations</h2>
+          <span class="count" id="station-count">Station 01 / 06</span>
+        </div>
+      </div>
+
+      <div class="wrap">
+        <div class="traverse-grid">
+          <div class="stations" id="stations">
+            <div class="spine"></div>
+            <div class="spine-fill" id="spine-fill"></div>
+
+            <div class="station" data-station="0">
+              <span class="n">01</span>
+              <h3>Plan the fan-out</h3>
+              <p>A planner reads the question and decides which departments it touches. Its output schema is a closed set built from the live config, so it cannot name a department that does not exist.
+              <span class="model">Gemini Flash · Google ADK</span></p>
+            </div>
+            <div class="station" data-station="1">
+              <span class="n">02</span>
+              <h3>Gate before reading</h3>
+              <p>Every path is checked against the caller's role before a single file is opened. Denials are emitted straight away, which is why the locked nodes reach the map first.
+              <span class="model">gatherers/permissions.py</span></p>
+            </div>
+            <div class="station" data-station="2">
+              <span class="n">03</span>
+              <h3>Read in parallel</h3>
+              <p>One gatherer per department, running concurrently. They read whole files rather than guessing from filenames, which is how budget_2026_final.csv gets found from a question about Q3 spend.
+              <span class="model">Gemini Flash</span></p>
+            </div>
+            <div class="station" data-station="3">
+              <span class="n">04</span>
+              <h3>Synthesise with citations</h3>
+              <p>The gathered material becomes an answer that cites each specific claim inline, and says plainly when the material it needed was withheld.
+              <span class="model">state_manager/manager_synthesizer.py</span></p>
+            </div>
+            <div class="station" data-station="4">
+              <span class="n">05</span>
+              <h3>Try to reject it</h3>
+              <p>An adversarial checker receives the answer, the config and the full source text, then hunts for the reason it is wrong. A veto comes with revision notes concrete enough to act on, and the answer goes round again.
+              <span class="model">Claude · veto/checker.py</span></p>
+            </div>
+            <div class="station" data-station="5">
+              <span class="n">06</span>
+              <h3>Draw the map</h3>
+              <p>The approved answer, its sources and the denials become a force-directed graph, rendered live in the app and written out as a self-contained page that works offline.
+              <span class="model">client/viz.py</span></p>
+            </div>
+          </div>
+
+          <div class="survey-frame">
+            <canvas id="survey-map" aria-label="The same graph assembling stage by stage as the page scrolls: departments, then locked files, then read files, then the answer."></canvas>
+            <div class="survey-progress" id="survey-progress"></div>
+            <span class="survey-stage" id="survey-stage">Planning</span>
+            <span class="survey-verdict" id="survey-verdict">Approved</span>
+            <div class="survey-hud">
+              <span id="hud-left">0 read · 0 denied</span>
+              <span>alice · analyst</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="plate">
+  <div class="wrap plate-grid">
+    <div class="margin-ref">
+      <span class="idx">LEGEND</span>
+      <span class="path">src/agentic/client/viz.py</span>
+    </div>
+    <div>
+      <h2>Every map needs a key</h2>
+      <p class="lede">The graph has four kinds of node. The fourth is the one that matters, and the reason the project is called what it is.</p>
+      <div class="legend" style="margin-top:1.6rem">
+        <div class="legend-row">
+          <div class="swatch"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="9" fill="var(--answer)" stroke="var(--answer-ring)" stroke-width="1.5"/></svg></div>
+          <div>
+            <div class="legend-name">Answer<span class="kind">answer</span></div>
+            <div class="legend-desc">The compiled response, at the centre. Everything it cites hangs off it.</div>
+          </div>
+        </div>
+        <div class="legend-row">
+          <div class="swatch"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><polygon points="13,3.5 21.2,8.25 21.2,17.75 13,22.5 4.8,17.75 4.8,8.25" fill="var(--accent)"/></svg></div>
+          <div>
+            <div class="legend-name">Department<span class="kind">department</span></div>
+            <div class="legend-desc">One cluster hub per department the planner routed to: engineering, finance, legal, whatever the config declares.</div>
+          </div>
+        </div>
+        <div class="legend-row">
+          <div class="swatch"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="5.5" fill="var(--accent)"/></svg></div>
+          <div>
+            <div class="legend-name">File<span class="kind">file</span></div>
+            <div class="legend-desc">A source the answer actually used, coloured by department. Click one and it tells you, in the gatherer's own words, what in it was relevant.</div>
+          </div>
+        </div>
+        <div class="legend-row is-locked">
+          <div class="swatch"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="5.5" fill="none" stroke="var(--locked)" stroke-width="1.6" stroke-dasharray="3 3"/></svg></div>
+          <div>
+            <div class="legend-name">Denied<span class="kind">denied</span></div>
+            <div class="legend-desc">A file the permission gate refused. It is drawn, dashed and locked, rather than omitted, so the shape of what you cannot see is part of the answer.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="gate" id="gate">
+  <div class="gate-rail">
+    <div class="gate-sticky">
+      <div class="wrap">
+        <div class="gate-intro">
+          <h2>Fortified means the model never sees it</h2>
+          <p class="lede">Filtering a model's output after the fact is not access control. By then the content has already been sent to a provider. Two requests enter the gate below. Only one comes out.</p>
+        </div>
+      </div>
+
+      <div class="wrap">
+        <div class="stack-diagram" id="stack-diagram">
+          <div class="tray tray-in">
+            <span>Requested by alice · analyst</span>
+            <span>2 paths</span>
+          </div>
+
+          <div class="gate-layer" data-gate="0">
+            <span class="g-n">01</span>
+            <div>
+              <h3>Path check, before opening</h3>
+              <p>Permission is decided on the path. A file you may not read is never opened, so its contents cannot reach a prompt.</p>
+            </div>
+          </div>
+          <div class="gate-layer" data-gate="1">
+            <span class="g-n">02</span>
+            <div>
+              <h3>Two configs must agree</h3>
+              <p>The permissions config and the environment config both have to grant it. Any disagreement denies, and malformed config fails closed.</p>
+            </div>
+          </div>
+          <div class="gate-layer" data-gate="2">
+            <span class="g-n">03</span>
+            <div>
+              <h3>Spawn gate re-check</h3>
+              <p>Every file a gatherer returns is checked again centrally. The check inside the gatherer is an efficiency layer, not the boundary.</p>
+            </div>
+          </div>
+          <div class="gate-layer" data-gate="3">
+            <span class="g-n">04</span>
+            <div>
+              <h3>Containment</h3>
+              <p>Traversal, absolute paths and symlinks that escape a department root are rejected, for a cloud object exactly as for a local file.</p>
+            </div>
+          </div>
+
+          <div class="tray tray-out">
+            <span>Sent to the model</span>
+            <span class="arrived" id="gate-arrived">finance/q3-actuals.csv</span>
+          </div>
+
+          <span class="chip" id="chip-ok">finance/q3-actuals.csv</span>
+          <span class="chip restricted" id="chip-no">hr/comp-bands.md</span>
+        </div>
+      </div>
+
+      <div class="wrap">
+        <p class="gate-caption" id="gate-caption">Two requests enter the gate.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="plate">
+  <div class="wrap plate-grid">
+    <div class="margin-ref">
+      <span class="idx">IN PRACTICE</span>
+      <span class="path">gatherers/permissions.py</span>
+      <span class="path">gatherers/spawn.py</span>
+    </div>
+    <div>
+      <blockquote class="pull" style="margin-top:0">
+        “Information regarding compensation bands was denied by permissions.”
+        <cite>the answer itself, unprompted, when an analyst asked about HR data</cite>
+      </blockquote>
+    </div>
+  </div>
+</section>
+
+<section class="plate">
+  <div class="wrap plate-grid">
+    <div class="margin-ref">
+      <span class="idx">RECEIPTS</span>
+      <span class="path">POST /api/run · text/event-stream</span>
+    </div>
+    <div>
+      <h2>A real run, as it streamed</h2>
+      <p class="lede">Signed in as an analyst, a role with no HR access, asking a question that deliberately straddles the boundary.</p>
+      <div class="transcript" style="margin-top:1.5rem">
+        <div class="transcript-head">
+          <span>alice · analyst</span>
+          <span>“What are the compensation bands, and how did Q3 engineering spend compare to budget?”</span>
+        </div>
+<pre><span class="tline"><span class="ev">run_started</span>       role=analyst  departments=[engineering, finance, hr]</span>
+<span class="tline"><span class="ev">scanning</span>         hr · 4 candidates</span>
+<span class="tline"><span class="ev-deny">file_denied</span>      hr/comp-bands.md                     <span class="dim">🔒 not opened</span></span>
+<span class="tline"><span class="ev-deny">file_denied</span>      hr/headcount-plan.csv                <span class="dim">🔒 not opened</span></span>
+<span class="tline"><span class="ev-deny">file_denied</span>      hr/org-changes-draft.md              <span class="dim">🔒 not opened</span></span>
+<span class="tline"><span class="ev-deny">file_denied</span>      hr/performance-reviews/q3-summary.md <span class="dim">🔒 not opened</span></span>
+<span class="tline"><span class="ev">scanning</span>         finance, engineering</span>
+<span class="tline"><span class="ev">file_read</span>        × 6</span>
+<span class="tline"><span class="ev">assessing</span>        6 files</span>
+<span class="tline"><span class="ev">file_assessed</span>    × 6   <span class="dim">each with a grounded relevance note</span></span>
+<span class="tline"><span class="ev">synthesized</span>      revision 0 · 7 inline citations</span>
+<span class="tline"><span class="ev-ok">veto</span>             check 1 · <span class="ev-ok">APPROVED</span></span>
+<span class="tline"><span class="ev">run_state</span>        12 nodes · 5 files · <span class="ev-deny">4 locked</span></span></pre>
+      </div>
+      <div class="stats" style="margin-top:2.2rem">
+        <div class="stat"><div class="n" data-to="4">0</div><div class="l">denied before<br>any file opened</div></div>
+        <div class="stat"><div class="n" data-to="157">0</div><div class="l">tests passing</div></div>
+        <div class="stat"><div class="n" data-to="2700">0</div><div class="l">lines of tests<br>to 3,700 of source</div></div>
+        <div class="stat"><div class="n">0</div><div class="l">restricted bytes<br>sent to a model</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="plate">
+  <div class="wrap plate-grid">
+    <div class="margin-ref">
+      <span class="idx">ADVERSARY</span>
+      <span class="path">src/agentic/veto/checker.py</span>
+    </div>
+    <div>
+      <h2>Something has to argue against the answer</h2>
+      <p class="lede">Every other component in the pipeline is optimising to produce an answer. The veto checker is the only one optimising to catch one that should not ship, and it is told to read looking for the reason the answer is wrong rather than for confirmation that it is right.</p>
+      <div class="cards" style="margin-top:1.6rem">
+        <div class="card adversary">
+          <span class="tick">Grounded</span>
+          <h3>It gets the sources, not just the citations</h3>
+          <p>The full text of every cited file travels with the answer, so a claim is checked against the file rather than against the fact that a link was attached to it.</p>
+        </div>
+        <div class="card adversary">
+          <span class="tick">Actionable</span>
+          <h3>A veto comes with instructions</h3>
+          <p>Rejection is not a score. It is revision notes specific enough for the synthesiser to act on, and the answer goes round again, up to a configurable budget.</p>
+        </div>
+        <div class="card adversary">
+          <span class="tick">Honest</span>
+          <h3>It fails closed, and it says so</h3>
+          <p>If the checker refuses, truncates or cannot be parsed, that counts as a veto. An answer that exhausts its retries still ships, carrying a visible unapproved banner, never a silent one.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="plate">
+  <div class="wrap plate-grid">
+    <div class="margin-ref">
+      <span class="idx">BUILT WITH</span>
+      <span class="path">pyproject.toml</span>
+    </div>
+    <div>
+      <h2>What it is made of</h2>
+      <dl class="stack-list" style="margin-top:1.2rem">
+        <div class="stack-row"><dt>Planner</dt><dd>Gemini Flash on Google ADK<span class="note">Dynamic closed-schema output, so a hallucinated department fails validation before anything runs.</span></dd></div>
+        <div class="stack-row"><dt>Gatherers</dt><dd>Gemini Flash, one per department<span class="note">Fanned out concurrently under a configurable cap.</span></dd></div>
+        <div class="stack-row"><dt>Veto checker</dt><dd>Claude<span class="note">Structured verdict, swappable at run time from an operator allowlist.</span></dd></div>
+        <div class="stack-row"><dt>Storage</dt><dd>Local filesystem, Google Cloud Storage, or Google Drive<span class="note">A cloud object passes the same gate, and the same containment rules, as a local file.</span></dd></div>
+        <div class="stack-row"><dt>Backend</dt><dd>FastAPI with server-sent events<span class="note">JWT auth. The authenticated role becomes the principal for every gate and is never read from a request body.</span></dd></div>
+        <div class="stack-row"><dt>Map</dt><dd>Custom force-directed renderer<span class="note">One graph builder feeds both the live canvas and a self-contained offline page.</span></dd></div>
+        <div class="stack-row"><dt>Output</dt><dd>Obsidian-flavoured markdown<span class="note">Wikilinks and tags, rendered in our own visualiser rather than the Obsidian app.</span></dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div>
+      <div class="mark"><span>⬢</span> Cartographer</div>
+      <div class="meta">Fortified Enterprise Fleet</div>
+    </div>
+    <div class="meta"><a href="https://github.com/michaelnkr808/all-things-agentic">github.com/michaelnkr808</a></div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function css(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function smooth(edge0, edge1, x) {
+    var t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+
+  /* One scroll listener drives every scroll-linked section. */
+  var updaters = [], measurers = [], queued = false;
+  function register(update, measure) {
+    updaters.push(update);
+    if (measure) { measurers.push(measure); measure(); }
+    update();
+  }
+  function runUpdaters() { queued = false; updaters.forEach(function (f) { f(); }); }
+  function requestUpdate() { if (!queued) { queued = true; requestAnimationFrame(runUpdaters); } }
+  window.addEventListener("scroll", requestUpdate, { passive: true });
+  window.addEventListener("resize", function () {
+    measurers.forEach(function (f) { f(); });
+    requestUpdate();
+  });
+
+  /* One real run: an analyst asking across engineering, finance and hr.
+     The four hr files are the ones the gate refused. They are drawn, not dropped.
+     `at` is the scroll progress (0..1) where each node enters the survey. */
+  var DEPTS = [
+    { id: "engineering", at: 0.02 },
+    { id: "finance",     at: 0.05 },
+    { id: "hr",          at: 0.08, locked: true }
+  ];
+  var DENIED = [
+    { id: "comp-bands.md",        dept: "hr", at: 0.20 },
+    { id: "headcount-plan.csv",   dept: "hr", at: 0.23 },
+    { id: "org-changes-draft.md", dept: "hr", at: 0.26 },
+    { id: "q3-summary.md",        dept: "hr", at: 0.29 }
+  ];
+  var FILES = [
+    { id: "roadmap.md",         dept: "engineering", at: 0.38 },
+    { id: "infra-spend-q3.md",  dept: "engineering", at: 0.41 },
+    { id: "q3-actuals.csv",     dept: "finance",     at: 0.44 },
+    { id: "headcount-costs.csv",dept: "finance",     at: 0.47 },
+    { id: "cloud-renewal.md",   dept: "finance",     at: 0.50 },
+    { id: "forecast-fy26.md",   dept: "finance",     at: 0.53 }
+  ];
+  var ANSWER_AT = 0.62, VETO_AT = 0.80;
+
+  var STAGES = ["Planning", "Gating", "Reading", "Synthesising", "Veto check", "Mapped"];
+
+  function buildGraph() {
+    var nodes = [], links = [], byId = {};
+    function add(n) { nodes.push(n); byId[n.id] = n; return n; }
+
+    var answer = add({ id: "answer", kind: "answer", r: 13, at: ANSWER_AT,
+                       x: 0, y: 0, vx: 0, vy: 0 });
+
+    DEPTS.forEach(function (d, i) {
+      var a = (i / DEPTS.length) * Math.PI * 2 - Math.PI / 2;
+      add({ id: d.id, kind: "dept", locked: !!d.locked, label: d.id, r: 9, at: d.at,
+            x: Math.cos(a) * 130, y: Math.sin(a) * 130, vx: 0, vy: 0 });
+    });
+
+    FILES.forEach(function (f, i) {
+      var a = (i / FILES.length) * Math.PI * 2;
+      var n = add({ id: f.id, kind: "file", r: 5, at: f.at,
+                    x: Math.cos(a) * 210, y: Math.sin(a) * 210, vx: 0, vy: 0 });
+      links.push({ s: answer, t: n, len: 100, at: ANSWER_AT });
+      links.push({ s: n, t: byId[f.dept], len: 64, at: f.at });
+    });
+
+    DENIED.forEach(function (f, i) {
+      var a = (i / DENIED.length) * Math.PI * 2 + 0.6;
+      var n = add({ id: f.id, kind: "denied", r: 5, at: f.at,
+                    x: Math.cos(a) * 225, y: Math.sin(a) * 225, vx: 0, vy: 0 });
+      links.push({ s: n, t: byId[f.dept], len: 64, dashed: true, at: f.at });
+    });
+
+    return { nodes: nodes, links: links };
+  }
+
+  function alphaOf(node, progress) { return smooth(node.at, node.at + 0.05, progress); }
+
+  function step(g, progress) {
+    var nodes = g.nodes, links = g.links, i, j;
+    for (i = 0; i < nodes.length; i++) {
+      if (alphaOf(nodes[i], progress) <= 0.01) continue;
+      for (j = i + 1; j < nodes.length; j++) {
+        if (alphaOf(nodes[j], progress) <= 0.01) continue;
+        var a = nodes[i], b = nodes[j];
+        var dx = b.x - a.x, dy = b.y - a.y;
+        var d2 = dx * dx + dy * dy || 0.01, d = Math.sqrt(d2);
+        var f = 2600 / d2, fx = (dx / d) * f, fy = (dy / d) * f;
+        a.vx -= fx; a.vy -= fy; b.vx += fx; b.vy += fy;
+      }
+    }
+    for (i = 0; i < links.length; i++) {
+      var l = links[i];
+      if (alphaOf(l.s, progress) <= 0.01 || alphaOf(l.t, progress) <= 0.01) continue;
+      var ldx = l.t.x - l.s.x, ldy = l.t.y - l.s.y;
+      var ld = Math.sqrt(ldx * ldx + ldy * ldy) || 0.01;
+      var lf = (ld - l.len) * 0.012;
+      var lfx = (ldx / ld) * lf, lfy = (ldy / ld) * lf;
+      l.s.vx += lfx; l.s.vy += lfy; l.t.vx -= lfx; l.t.vy -= lfy;
+    }
+    for (i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      n.vx -= n.x * 0.0022; n.vy -= n.y * 0.0022;
+      n.vx *= 0.86; n.vy *= 0.86;
+      n.x += n.vx; n.y += n.vy;
+    }
+  }
+
+  function makeCanvas(canvas, graph) {
+    var ctx = canvas.getContext("2d");
+    var W = 0, H = 0, dpr = 1;
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var rect = canvas.getBoundingClientRect();
+      W = rect.width; H = rect.height;
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+    }
+
+    function draw(progress) {
+      var accent = css("--accent", "#7AA2F7");
+      var locked = css("--locked", "#5A6272");
+      var line = css("--line", "#1E2732");
+      var faint = css("--faint", "#4E5A6B");
+      var surface = css("--surface", "#12171E");
+      var answerFill = css("--answer", "#E6E6FA");
+      var answerRing = css("--answer-ring", "#A9A1E1");
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.save();
+      ctx.translate(W / 2, H / 2);
+      ctx.scale(Math.min(1, W / 640), Math.min(1, W / 640));
+
+      ctx.lineWidth = 1;
+      graph.links.forEach(function (l) {
+        var a = Math.min(alphaOf(l.s, progress), alphaOf(l.t, progress));
+        if (l.at) a = Math.min(a, smooth(l.at, l.at + 0.05, progress));
+        if (a <= 0.01) return;
+        ctx.globalAlpha = a;
+        ctx.beginPath();
+        ctx.setLineDash(l.dashed ? [3, 4] : []);
+        ctx.strokeStyle = l.dashed ? locked : line;
+        ctx.moveTo(l.s.x, l.s.y);
+        ctx.lineTo(l.t.x, l.t.y);
+        ctx.stroke();
+      });
+      ctx.setLineDash([]);
+
+      graph.nodes.forEach(function (n) {
+        var a = alphaOf(n, progress);
+        if (a <= 0.01) return;
+        ctx.globalAlpha = a;
+        ctx.beginPath();
+
+        if (n.kind === "dept") {
+          for (var i = 0; i < 6; i++) {
+            var ang = (Math.PI / 3) * i - Math.PI / 2;
+            var px = n.x + Math.cos(ang) * n.r, py = n.y + Math.sin(ang) * n.r;
+            i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+          }
+          ctx.closePath();
+          if (n.locked) {
+            ctx.strokeStyle = locked; ctx.lineWidth = 1.4;
+            ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+          } else { ctx.fillStyle = accent; ctx.fill(); }
+        } else if (n.kind === "denied") {
+          ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+          ctx.fillStyle = surface; ctx.fill();
+          ctx.strokeStyle = locked; ctx.lineWidth = 1.4;
+          ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+        } else if (n.kind === "answer") {
+          // a settling ring once the veto has passed
+          var ring = smooth(VETO_AT, VETO_AT + 0.08, progress);
+          if (ring > 0.01) {
+            ctx.globalAlpha = a * ring * 0.5;
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.r + 7 + (1 - ring) * 16, 0, Math.PI * 2);
+            ctx.strokeStyle = css("--ok", "#7DD8A0"); ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.globalAlpha = a;
+            ctx.beginPath();
+          }
+          ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+          ctx.fillStyle = answerFill; ctx.fill();
+          ctx.strokeStyle = answerRing; ctx.lineWidth = 1.5; ctx.stroke();
+        } else {
+          ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+          ctx.fillStyle = accent; ctx.fill();
+        }
+
+        if (n.label) {
+          ctx.font = "500 11px 'IBM Plex Mono', monospace";
+          ctx.fillStyle = n.locked ? locked : faint;
+          ctx.textAlign = "center";
+          ctx.fillText(n.locked ? n.label + " 🔒" : n.label, n.x, n.y + n.r + 15);
+        }
+      });
+
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    resize();
+    return { resize: resize, draw: draw };
+  }
+
+  /* ── hero: a 3D graph the scroll orbits ───────────────────────────────
+     The map starts flat, the way a chart is flat. As the page scrolls the
+     camera tilts and swings around it while the z axis inflates, so the
+     chart resolves into terrain. Plain Canvas 2D with a hand-rolled
+     projection: no WebGL, nothing fetched. */
+  var heroCanvas = document.getElementById("hero-map");
+  var heroRail = document.querySelector(".hero-rail");
+  if (heroCanvas) {
+    var hg = buildGraph();
+    hg.nodes.forEach(function (n) {
+      n.at = 0;
+      n.z = (Math.random() - 0.5) * 240;
+      n.vz = 0;
+    });
+    hg.links.forEach(function (l) { l.at = 0; });
+
+    var hctx = heroCanvas.getContext("2d");
+    var HW = 0, HH = 0, hdpr = 1;
+    var bearingEl = document.getElementById("hero-bearing");
+
+    function heroResize() {
+      hdpr = Math.min(window.devicePixelRatio || 1, 2);
+      var r = heroCanvas.getBoundingClientRect();
+      HW = r.width; HH = r.height;
+      heroCanvas.width = Math.round(HW * hdpr);
+      heroCanvas.height = Math.round(HH * hdpr);
+    }
+
+    // 3D relaxation: same forces as the flat sim, one axis richer.
+    function step3() {
+      var ns = hg.nodes, i, j;
+      for (i = 0; i < ns.length; i++) {
+        for (j = i + 1; j < ns.length; j++) {
+          var a = ns[i], b = ns[j];
+          var dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+          var d2 = dx * dx + dy * dy + dz * dz || 0.01, d = Math.sqrt(d2);
+          var f = 4200 / d2;
+          var fx = (dx / d) * f, fy = (dy / d) * f, fz = (dz / d) * f;
+          a.vx -= fx; a.vy -= fy; a.vz -= fz;
+          b.vx += fx; b.vy += fy; b.vz += fz;
+        }
+      }
+      for (i = 0; i < hg.links.length; i++) {
+        var l = hg.links[i];
+        var ldx = l.t.x - l.s.x, ldy = l.t.y - l.s.y, ldz = l.t.z - l.s.z;
+        var ld = Math.sqrt(ldx * ldx + ldy * ldy + ldz * ldz) || 0.01;
+        var lf = (ld - l.len) * 0.013;
+        var lx = (ldx / ld) * lf, ly = (ldy / ld) * lf, lz = (ldz / ld) * lf;
+        l.s.vx += lx; l.s.vy += ly; l.s.vz += lz;
+        l.t.vx -= lx; l.t.vy -= ly; l.t.vz -= lz;
+      }
+      for (i = 0; i < ns.length; i++) {
+        var n = ns[i];
+        n.vx -= n.x * 0.0026; n.vy -= n.y * 0.0026; n.vz -= n.z * 0.0032;
+        n.vx *= 0.85; n.vy *= 0.85; n.vz *= 0.85;
+        n.x += n.vx; n.y += n.vy; n.z += n.vz;
+      }
+    }
+
+    var cam = { yaw: -0.30, pitch: 0.10, zs: 0.10, dist: 640, f: 640 };
+
+    function setCamera(p) {
+      cam.yaw = -0.30 + p * 2.6;                      // a little over half a turn
+      cam.pitch = 0.10 + smooth(0, 0.5, p) * 0.40;    // tilt down to see the volume
+      cam.zs = 0.10 + smooth(0, 0.35, p) * 0.90;      // the map lifts off the page
+      cam.dist = 640 - p * 70;                        // and drifts closer
+      if (bearingEl) {
+        var deg = Math.round(((cam.yaw * 180 / Math.PI) % 360 + 360) % 360);
+        bearingEl.textContent = "Bearing " + String(deg).padStart(3, "0") + "°";
+      }
+    }
+
+    function project(n) {
+      var z = n.z * cam.zs;
+      var cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+      var x1 = n.x * cy - z * sy;
+      var z1 = n.x * sy + z * cy;
+      var cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+      var y1 = n.y * cp - z1 * sp;
+      var z2 = n.y * sp + z1 * cp;
+      var d = cam.dist + z2;
+      if (d < 60) d = 60;
+      var k = cam.f / d;
+      return { x: x1 * k, y: y1 * k, k: k, depth: z2 };
+    }
+
+    function heroDraw() {
+      var accent = css("--accent", "#7AA2F7");
+      var locked = css("--locked", "#5A6272");
+      var line = css("--line", "#1E2732");
+      var faint = css("--faint", "#4E5A6B");
+      var surface = css("--surface", "#12171E");
+      var answerFill = css("--answer", "#E6E6FA");
+      var answerRing = css("--answer-ring", "#A9A1E1");
+
+      hctx.setTransform(hdpr, 0, 0, hdpr, 0, 0);
+      hctx.clearRect(0, 0, HW, HH);
+      hctx.save();
+      hctx.translate(HW / 2, HH / 2);
+      var fit = Math.min(1, HW / 620);
+      hctx.scale(fit, fit);
+
+      var pts = {};
+      hg.nodes.forEach(function (n) { pts[n.id] = project(n); });
+
+      // haze with distance so depth reads without any lighting model
+      function fog(depth) { return clamp(1 - (depth + 190) / 620, 0.18, 1); }
+
+      var sortedLinks = hg.links.slice().sort(function (a, b) {
+        return (pts[b.s.id].depth + pts[b.t.id].depth) - (pts[a.s.id].depth + pts[a.t.id].depth);
+      });
+      hctx.lineWidth = 1;
+      sortedLinks.forEach(function (l) {
+        var A = pts[l.s.id], B = pts[l.t.id];
+        hctx.globalAlpha = fog((A.depth + B.depth) / 2) * (l.dashed ? 0.9 : 0.75);
+        hctx.beginPath();
+        hctx.setLineDash(l.dashed ? [3, 4] : []);
+        hctx.strokeStyle = l.dashed ? locked : line;
+        hctx.moveTo(A.x, A.y);
+        hctx.lineTo(B.x, B.y);
+        hctx.stroke();
+      });
+      hctx.setLineDash([]);
+
+      var sortedNodes = hg.nodes.slice().sort(function (a, b) {
+        return pts[b.id].depth - pts[a.id].depth;   // far first
+      });
+      sortedNodes.forEach(function (n) {
+        var P = pts[n.id], r = n.r * P.k;
+        hctx.globalAlpha = fog(P.depth);
+        hctx.beginPath();
+
+        if (n.kind === "dept") {
+          for (var i = 0; i < 6; i++) {
+            var ang = (Math.PI / 3) * i - Math.PI / 2;
+            var px = P.x + Math.cos(ang) * r, py = P.y + Math.sin(ang) * r;
+            i ? hctx.lineTo(px, py) : hctx.moveTo(px, py);
+          }
+          hctx.closePath();
+          if (n.locked) {
+            hctx.strokeStyle = locked; hctx.lineWidth = 1.4;
+            hctx.setLineDash([3, 3]); hctx.stroke(); hctx.setLineDash([]);
+          } else { hctx.fillStyle = accent; hctx.fill(); }
+        } else if (n.kind === "denied") {
+          hctx.arc(P.x, P.y, r, 0, Math.PI * 2);
+          hctx.fillStyle = surface; hctx.fill();
+          hctx.strokeStyle = locked; hctx.lineWidth = 1.4;
+          hctx.setLineDash([3, 3]); hctx.stroke(); hctx.setLineDash([]);
+        } else if (n.kind === "answer") {
+          hctx.arc(P.x, P.y, r, 0, Math.PI * 2);
+          hctx.fillStyle = answerFill; hctx.fill();
+          hctx.strokeStyle = answerRing; hctx.lineWidth = 1.5; hctx.stroke();
+        } else {
+          hctx.arc(P.x, P.y, r, 0, Math.PI * 2);
+          hctx.fillStyle = accent; hctx.fill();
+        }
+
+        if (n.label) {
+          hctx.globalAlpha = fog(P.depth) * 0.9;
+          hctx.font = "500 11px 'IBM Plex Mono', monospace";
+          hctx.fillStyle = n.locked ? locked : faint;
+          hctx.textAlign = "center";
+          hctx.fillText(n.locked ? n.label + " 🔒" : n.label, P.x, P.y + r + 15);
+        }
+      });
+
+      hctx.globalAlpha = 1;
+      hctx.restore();
+    }
+
+    heroResize();
+    for (var h3 = 0; h3 < 340; h3++) step3();   // settle the volume before first paint
+
+    if (reduced) {
+      setCamera(0.42);                            // a considered resting angle
+      heroDraw();
+    } else {
+      setCamera(0);
+      (function heroTick() {
+        step3();
+        heroDraw();
+        requestAnimationFrame(heroTick);
+      })();
+      if (heroRail) {
+        register(function () {
+          var rect = heroRail.getBoundingClientRect();
+          var span = heroRail.offsetHeight - window.innerHeight;
+          setCamera(span <= 0 ? 0 : clamp(-rect.top / span, 0, 1));
+        });
+      }
+    }
+    window.addEventListener("resize", function () { heroResize(); heroDraw(); });
+  }
+
+  /* ── traverse: scroll position is the survey ─────────────────────────── */
+  var rail = document.querySelector(".traverse-rail");
+  var surveyCanvas = document.getElementById("survey-map");
+  if (rail && surveyCanvas) {
+    var g = buildGraph();
+    var survey = makeCanvas(surveyCanvas, g);
+    var stations = Array.prototype.slice.call(document.querySelectorAll(".station"));
+    var fill = document.getElementById("spine-fill");
+    var bar = document.getElementById("survey-progress");
+    var stageEl = document.getElementById("survey-stage");
+    var verdictEl = document.getElementById("survey-verdict");
+    var countEl = document.getElementById("station-count");
+    var hudLeft = document.getElementById("hud-left");
+    var progress = reduced ? 1 : 0, lastStation = -1, ticking = false;
+
+    function readProgress() {
+      var rect = rail.getBoundingClientRect();
+      var span = rail.offsetHeight - window.innerHeight;
+      if (span <= 0) return 1;
+      return clamp(-rect.top / span, 0, 1);
+    }
+
+    function paintChrome(p) {
+      var idx = clamp(Math.floor(p * STAGES.length), 0, STAGES.length - 1);
+      if (idx !== lastStation) {
+        lastStation = idx;
+        stations.forEach(function (s, i) { s.classList.toggle("is-active", i === idx); });
+        stageEl.textContent = STAGES[idx];
+        countEl.textContent = "Station " + String(idx + 1).padStart(2, "0") + " / 06";
+      }
+      fill.style.height = (p * 100) + "%";
+      bar.style.width = (p * 100) + "%";
+      verdictEl.classList.toggle("on", p > VETO_AT + 0.04);
+
+      var read = 0, denied = 0;
+      FILES.forEach(function (f) { if (p >= f.at) read++; });
+      DENIED.forEach(function (f) { if (p >= f.at) denied++; });
+      hudLeft.textContent = read + " read · " + denied + " denied";
+    }
+
+    function frame() {
+      ticking = false;
+      progress = readProgress();
+      paintChrome(progress);
+    }
+    function onScroll() {
+      if (!ticking) { ticking = true; requestAnimationFrame(frame); }
+    }
+
+    // The simulation runs continuously so the map is always settling toward
+    // its layout, whatever the scroll position jumps to.
+    for (var s0 = 0; s0 < 120; s0++) step(g, progress);
+    (function tick() {
+      step(g, progress);
+      survey.draw(progress);
+      requestAnimationFrame(tick);
+    })();
+
+    paintChrome(progress);
+    if (!reduced) {
+      window.addEventListener("scroll", onScroll, { passive: true });
+      onScroll();
+    }
+    window.addEventListener("resize", function () { survey.resize(); onScroll(); });
+  }
+
+
+  /* ── the gate: two requests descend through four checks ───────────────
+     The allowed path travels the full column. The restricted one halts at
+     the first check and never moves again, which is the claim the section
+     is making: the model is not filtered afterwards, it is never sent. */
+  var gateRail = document.querySelector(".gate-rail");
+  var diagram = document.getElementById("stack-diagram");
+  if (gateRail && diagram) {
+    var layers = Array.prototype.slice.call(diagram.querySelectorAll(".gate-layer"));
+    var trayIn = diagram.querySelector(".tray-in");
+    var trayOut = diagram.querySelector(".tray-out");
+    var chipOk = document.getElementById("chip-ok");
+    var chipNo = document.getElementById("chip-no");
+    var arrived = document.getElementById("gate-arrived");
+    var caption = document.getElementById("gate-caption");
+    var BLOCK_AT = 0.24;
+    var stops = [];
+
+    function measure() {
+      stops = [trayIn.offsetTop + trayIn.offsetHeight / 2];
+      layers.forEach(function (l) { stops.push(l.offsetTop + l.offsetHeight / 2); });
+      stops.push(trayOut.offsetTop + trayOut.offsetHeight / 2);
+      chipOk.style.left = "10%";
+      chipNo.style.left = "auto";
+      chipNo.style.right = "10%";
+    }
+
+    function along(p) {
+      // p in 0..1 across the five segments between the six stops
+      var t = clamp(p, 0, 1) * (stops.length - 1);
+      var i = Math.min(Math.floor(t), stops.length - 2);
+      return stops[i] + (stops[i + 1] - stops[i]) * (t - i);
+    }
+
+    function paintGate(p) {
+      if (!stops.length) return;
+      var okY = along(p);
+      // the restricted request only ever reaches the first check
+      var noY = along(Math.min(p, BLOCK_AT) / BLOCK_AT * (1 / (stops.length - 1)));
+      chipOk.style.transform = "translateY(" + (okY - chipOk.offsetHeight / 2) + "px)";
+      chipNo.style.transform = "translateY(" + (noY - chipNo.offsetHeight / 2) + "px)";
+
+      var blocked = p >= BLOCK_AT;
+      chipNo.classList.toggle("blocked", blocked);
+
+      layers.forEach(function (l, i) {
+        l.classList.toggle("is-open", p >= (i + 1) / (stops.length - 1) - 0.04);
+      });
+
+      var done = p > 0.93;
+      arrived.classList.toggle("on", done);
+      caption.innerHTML = done
+        ? "One file reached the model. The other was <b>never opened</b>."
+        : blocked
+          ? "<b>hr/comp-bands.md</b> stopped at the first check."
+          : "Two requests enter the gate.";
+    }
+
+    register(function () {
+      var rect = gateRail.getBoundingClientRect();
+      var span = gateRail.offsetHeight - window.innerHeight;
+      paintGate(span <= 0 ? 1 : clamp(-rect.top / span, 0, 1));
+    }, measure);
+  }
+
+  /* ── receipts: the event log streams as it crosses the viewport ──────── */
+  var tlines = Array.prototype.slice.call(document.querySelectorAll(".tline"));
+  if (tlines.length) {
+    var host = tlines[0].closest(".transcript");
+    var shownCount = -1;
+    register(function () {
+      var rect = host.getBoundingClientRect();
+      var p = reduced ? 1 : clamp(
+        (window.innerHeight * 0.82 - rect.top) / (rect.height * 0.75), 0, 1);
+      var n = Math.round(p * tlines.length);
+      if (n === shownCount) return;
+      shownCount = n;
+      tlines.forEach(function (l, i) {
+        l.classList.toggle("shown", i < n);
+        l.classList.toggle("cursor", !reduced && i === n - 1 && n < tlines.length);
+      });
+    });
+  }
+
+  /* ── stats count up once, when they arrive ───────────────────────────── */
+  var stats = Array.prototype.slice.call(document.querySelectorAll(".stat .n[data-to]"));
+  if (stats.length) {
+    var fmt = function (v) { return v.toLocaleString("en-US"); };
+    if (reduced || !("IntersectionObserver" in window)) {
+      stats.forEach(function (el) { el.textContent = fmt(+el.dataset.to); });
+    } else {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (!e.isIntersecting) return;
+          io.unobserve(e.target);
+          var el = e.target, to = +el.dataset.to, t0 = performance.now();
+          (function run(now) {
+            var k = clamp((now - t0) / 900, 0, 1);
+            k = 1 - Math.pow(1 - k, 3);
+            el.textContent = fmt(Math.round(to * k));
+            if (k < 1) requestAnimationFrame(run);
+          })(t0);
+        });
+      }, { threshold: 0.6 });
+      stats.forEach(function (el) { io.observe(el); });
+    }
+  }
+
+  var scheme = window.matchMedia("(prefers-color-scheme: dark)");
+  if (scheme.addEventListener) {
+    scheme.addEventListener("change", function () { window.dispatchEvent(new Event("resize")); });
+  }
+})();
+</script>
+</body>
+</html>
