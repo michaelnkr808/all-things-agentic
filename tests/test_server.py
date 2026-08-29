@@ -162,7 +162,11 @@ def test_login_rate_limited_after_repeated_failures(client):
 
 # ---- demo mode ----
 
-def test_demo_mode_disabled_by_default(client):
+def test_demo_mode_disabled_by_default(client, monkeypatch):
+    # Hermetic: conftest loads the repo .env, and a developer running local
+    # demos has AGENTIC_DEMO_MODE=1 there. The default under test is the
+    # deployed default, not whatever happens to be on this machine.
+    monkeypatch.delenv("AGENTIC_DEMO_MODE", raising=False)
     data = client.get("/api/demo-mode").json()
     assert data == {"enabled": False, "identities": []}
 
