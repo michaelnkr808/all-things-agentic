@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartographer — architecture</title>
+<style>
+/* Sized for a single landscape page. Open in a browser and either
+   Print > Save as PDF (landscape, no margins, background graphics on),
+   or screenshot the sheet, for the Devpost architecture diagram upload. */
+:root {
+  --ground:#0C1014; --surface:#12171E; --raised:#171E27; --line:#243040;
+  --text:#C8D2DE; --muted:#7A8798; --faint:#55627450; --accent:#7AA2F7;
+  --advers:#F7768E; --locked:#5A6272; --ok:#7DD8A0; --answer:#E6E6FA;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"Archivo","Helvetica Neue",Arial,sans-serif;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:#05080B; color:var(--text); font-family:var(--sans);
+       display:grid; place-items:center; min-height:100vh; padding:20px; }
+.sheet {
+  width:1400px; background:var(--ground); border:1px solid var(--line);
+  padding:34px 40px 30px;
+  background-image:linear-gradient(to right,#0F141A 1px,transparent 1px),
+                   linear-gradient(to bottom,#0F141A 1px,transparent 1px);
+  background-size:56px 56px;
+}
+header { display:flex; justify-content:space-between; align-items:baseline;
+         border-bottom:1px solid var(--line); padding-bottom:12px; margin-bottom:22px; }
+h1 { margin:0; font-size:23px; letter-spacing:-0.02em; }
+h1 span { color:var(--accent); font-weight:400; }
+header .sub { font-family:var(--mono); font-size:11px; color:var(--muted); }
+header .cat { font-family:var(--mono); font-size:10.5px; color:var(--accent);
+              letter-spacing:.12em; text-transform:uppercase;
+              border:1px solid #2B3A57; padding:4px 9px; }
+
+.flow { display:grid; grid-template-columns:132px repeat(5,1fr); gap:10px; align-items:stretch; }
+.lane { border:1px solid var(--line); background:var(--surface); padding:11px 12px; position:relative; }
+.lane .n { font-family:var(--mono); font-size:9.5px; color:var(--accent);
+           letter-spacing:.1em; text-transform:uppercase; }
+.lane h3 { margin:5px 0 4px; font-size:13.5px; }
+.lane p { margin:0; font-size:10.5px; color:var(--muted); line-height:1.5; }
+.lane .model { font-family:var(--mono); font-size:9.5px; color:var(--faint); margin-top:7px; display:block; color:#66748A; }
+.entry { display:grid; align-content:center; border-color:#2B3A57; background:var(--raised); }
+.entry .q { font-size:11px; color:var(--text); line-height:1.5; }
+.lane.veto { border-color:#4A2F3A; }
+.lane.veto .n { color:var(--advers); }
+
+.arrow { text-align:center; font-family:var(--mono); color:var(--accent); font-size:13px; margin:7px 0 3px; letter-spacing:.5em; }
+
+.gatebar { border:1px solid var(--accent); background:linear-gradient(90deg,#16202F,transparent); padding:12px 14px; margin-top:14px; }
+.gatebar .hd { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:9px; }
+.gatebar .hd b { font-size:13px; }
+.gatebar .hd em { font-family:var(--mono); font-style:normal; font-size:10px; color:var(--accent); letter-spacing:.1em; text-transform:uppercase; }
+.gates { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+.g { border:1px solid var(--line); background:var(--ground); padding:8px 10px; }
+.g .gn { font-family:var(--mono); font-size:9.5px; color:var(--accent); }
+.g b { display:block; font-size:11.5px; margin:3px 0 2px; }
+.g span { font-size:9.5px; color:var(--muted); line-height:1.45; display:block; }
+.rule { font-family:var(--mono); font-size:10.5px; color:var(--muted); margin-top:10px; text-align:center; }
+.rule code { color:var(--text); }
+
+.lower { display:grid; grid-template-columns:1.25fr 1fr 1fr; gap:10px; margin-top:14px; }
+.panel { border:1px solid var(--line); background:var(--surface); padding:11px 12px; }
+.panel .n { font-family:var(--mono); font-size:9.5px; color:var(--accent); letter-spacing:.1em; text-transform:uppercase; }
+.panel h4 { margin:5px 0 5px; font-size:12.5px; }
+.panel ul { margin:0; padding-left:14px; }
+.panel li { font-size:10.5px; color:var(--muted); line-height:1.55; }
+.panel li b { color:var(--text); font-weight:500; }
+.srcs { display:flex; gap:6px; margin-top:7px; flex-wrap:wrap; }
+.src { font-family:var(--mono); font-size:9.5px; padding:2px 6px; border:1px solid var(--line); color:var(--muted); }
+.src.cloud { border-color:#2B4A57; color:#6FC9DE; }
+.src.locked { border-style:dashed; color:var(--locked); }
+
+footer { display:flex; justify-content:space-between; gap:16px; margin-top:16px;
+         border-top:1px solid var(--line); padding-top:10px;
+         font-family:var(--mono); font-size:9.5px; color:#66748A; }
+footer .k b { color:var(--text); font-weight:500; }
+@media print {
+  @page { size:landscape; margin:0; }
+  body { padding:0; background:var(--ground); }
+  .sheet { width:100%; border:0; }
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+  <header>
+    <div>
+      <h1><span>⬢</span> Cartographer</h1>
+      <div class="sub">Permission-gated enterprise agent fleet · one prompt, six stations, five gates</div>
+    </div>
+    <span class="cat">Fortified Enterprise Fleet</span>
+  </header>
+
+  <div class="flow">
+    <div class="lane entry">
+      <div class="n">input</div>
+      <div class="q">“How did Q3 engineering spend compare to the finance budget?”</div>
+      <span class="model">role from verified JWT<br>never from the request body</span>
+    </div>
+    <div class="lane">
+      <div class="n">01 · plan</div>
+      <h3>State manager</h3>
+      <p>Splits the prompt into one gathering task per department. Output schema is a closed set built per request, so an invented department fails validation before any code runs.</p>
+      <span class="model">gemini-3.5-flash · Vertex AI · Google ADK</span>
+    </div>
+    <div class="lane">
+      <div class="n">02 · gather</div>
+      <h3>Gatherer fleet</h3>
+      <p>One agent per department, fanned out concurrently under a configurable cap. Globs, gates, reads, then assesses each file for relevance.</p>
+      <span class="model">gemini-3.5-flash · parallel</span>
+    </div>
+    <div class="lane">
+      <div class="n">03 · synthesise</div>
+      <h3>Synthesiser</h3>
+      <p>Compiles one answer in Obsidian-flavoured markdown with inline <code>[[dept/path]]</code> citations back to the files it used.</p>
+      <span class="model">gemini-3.5-flash</span>
+    </div>
+    <div class="lane veto">
+      <div class="n">04 · reject</div>
+      <h3>Veto checker</h3>
+      <p>Adversarial. Receives the full source text, not just the citations, and tries to reject: unsupported claims, citations that do not resolve, departments the config never allowed. Vetoes carry revision notes and the answer goes round again.</p>
+      <span class="model">Claude · structured verdict · operator allowlist</span>
+    </div>
+    <div class="lane">
+      <div class="n">05 · draw</div>
+      <h3>Map</h3>
+      <p>Departments, cited files, and every denied file drawn dashed and locked. One graph builder feeds the live canvas and a self-contained offline page.</p>
+      <span class="model">canvas · streamed over SSE</span>
+    </div>
+  </div>
+
+  <div class="arrow">▼ every file, before it is opened ▼</div>
+
+  <div class="gatebar">
+    <div class="hd">
+      <b>The gate</b>
+      <em>non-bypassable · fails closed · in front of the read, not behind the answer</em>
+    </div>
+    <div class="gates">
+      <div class="g"><span class="gn">01</span><b>Path check</b><span>Decided on the path. A file you may not read is never opened, so its contents cannot reach a prompt.</span></div>
+      <div class="g"><span class="gn">02</span><b>Two configs agree</b><span>permissions.yaml AND environment.yaml must both grant it. Disagreement denies.</span></div>
+      <div class="g"><span class="gn">03</span><b>Spawn re-check</b><span>Every file a gatherer returns is re-checked centrally against the trusted role.</span></div>
+      <div class="g"><span class="gn">04</span><b>Containment</b><span>Traversal, absolute paths, escaping symlinks rejected. Cloud keys checked against the bucket prefix.</span></div>
+      <div class="g"><span class="gn">05</span><b>Provenance</b><span>The path must be a file the department actually holds, so an invented path cannot wear a real department's name.</span></div>
+    </div>
+    <div class="rule">read(role, dept, path) ⟺ <code>G_perm(role,dept)</code> ∧ <code>G_env(role,dept)</code> ∧ <code>contained(path,dept)</code> ∧ <code>exists(path,dept)</code></div>
+  </div>
+
+  <div class="lower">
+    <div class="panel">
+      <div class="n">sources</div>
+      <h4>One gate, any backend</h4>
+      <p style="margin:0 0 6px;font-size:10.5px;color:var(--muted);line-height:1.5">A cloud object passes exactly the same gate as a local file. For GCS the department name is the bucket prefix and the prefix is the containment root.</p>
+      <div class="srcs">
+        <span class="src">local filesystem</span>
+        <span class="src cloud">Google Cloud Storage</span>
+        <span class="src cloud">Google Drive</span>
+        <span class="src locked">denied · drawn, not dropped</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="n">evidence</div>
+      <h4>Proving it, not just doing it</h4>
+      <ul>
+        <li><b>Access ledger</b> — append-only record of every decision at both gates, pinned to the caller</li>
+        <li><b>Citation coverage</b> — integrity, grounding and usage, computed with no model call</li>
+        <li><b>Role comparison</b> — one prompt under two roles, downward only</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <div class="n">surface</div>
+      <h4>Backend and client</h4>
+      <ul>
+        <li><b>FastAPI + SSE</b> — the run streams file by file; cancel is authorised against the JWT</li>
+        <li><b>JWT auth</b>, pbkdf2-sha256 credentials, per-IP login rate limiting</li>
+        <li><b>Replay</b> — a recorded run plays back with zero API calls, pinned to the role that recorded it</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>
+    <span class="k"><b>243</b> tests · <b>4,034</b> lines of test to <b>4,835</b> of source</span>
+    <span class="k">Google ADK · google-genai · google-cloud-storage · Vertex AI · FastAPI · Pydantic</span>
+    <span class="k">github.com/michaelnkr808/cartographer</span>
+  </footer>
+</div>
+</body>
+</html>

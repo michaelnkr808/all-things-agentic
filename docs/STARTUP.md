@@ -53,7 +53,7 @@ Put these in `.env` at the repo root (loaded automatically by
 | `AGENTIC_RECORDINGS_DIR` | no | `recordings` | Where recordings live |
 | `GOOGLE_GENAI_USE_VERTEXAI` | no | off | `=TRUE` routes Gemini through Vertex AI |
 | `GOOGLE_CLOUD_PROJECT` | with Vertex/GCS | — | Project id |
-| `GOOGLE_CLOUD_LOCATION` | with Vertex | — | e.g. `us-central1` |
+| `GOOGLE_CLOUD_LOCATION` | with Vertex | — | `global` — the Gemini 3.x models are not served from regional endpoints |
 | `AGENTIC_DEMO_MODE` | no | off | `=1` enables one-click demo identities |
 | `AGENTIC_DEV_CORS` | no | off | `=1` allows all origins — dev only |
 
@@ -78,7 +78,7 @@ Then add to `.env`:
 ```bash
 GOOGLE_GENAI_USE_VERTEXAI=TRUE
 GOOGLE_CLOUD_PROJECT=your-project-id
-GOOGLE_CLOUD_LOCATION=us-central1
+GOOGLE_CLOUD_LOCATION=global
 ```
 
 `GOOGLE_API_KEY` may stay set; with `GOOGLE_GENAI_USE_VERTEXAI=TRUE` the Vertex
