@@ -10,8 +10,8 @@ From clean clone to a live run in the browser. For the auth/security model see
 - API keys: `GOOGLE_API_KEY` (Gemini — state manager + gatherers) and
   `ANTHROPIC_API_KEY` (Claude — client + veto checker)
 - **Free-tier warning:** Gemini's free tier is ~20 requests/day/model and one
-  run costs 5–8 calls → roughly 3 runs/day per model. Billing or Vertex AI
-  needed for real demos.
+  run costs 5–8 calls → roughly 3 runs/day per model. Use Vertex AI (step 3a)
+  for real demos.
 
 ## 1. Install
 
@@ -48,6 +48,11 @@ Put these in `.env` at the repo root (loaded automatically by
 | `AGENTIC_USERS_PATH` | no | `config/users.yaml` | User store location |
 | `AGENTIC_CONFIG_PATH` | no | `config/environment.yaml` | Fleet config |
 | `AGENTIC_GRAPHS_DIR` | no | `out/graphs` | Rendered viz pages |
+| `AGENTIC_RECORD` | no | off | `=1` records every run to `recordings/` for replay |
+| `AGENTIC_RECORDINGS_DIR` | no | `recordings` | Where recordings live |
+| `GOOGLE_GENAI_USE_VERTEXAI` | no | off | `=TRUE` routes Gemini through Vertex AI |
+| `GOOGLE_CLOUD_PROJECT` | with Vertex/GCS | — | Project id |
+| `GOOGLE_CLOUD_LOCATION` | with Vertex | — | e.g. `us-central1` |
 | `AGENTIC_DEMO_MODE` | no | off | `=1` enables one-click demo identities |
 | `AGENTIC_DEV_CORS` | no | off | `=1` allows all origins — dev only |
 
@@ -56,6 +61,29 @@ Generate a secret:
 ```bash
 export AGENTIC_JWT_SECRET=$(python -c "import secrets;print(secrets.token_hex(32))")
 ```
+
+## 3a. Google Cloud (optional, but what real demos run on)
+
+Vertex AI lifts the AI Studio daily cap; Cloud Storage lets a department read
+from a bucket instead of the local disk. User ADC is enough — there is no
+service-account key to keep out of the repo:
+
+```bash
+gcloud auth application-default login
+```
+
+Then add to `.env`:
+
+```bash
+GOOGLE_GENAI_USE_VERTEXAI=TRUE
+GOOGLE_CLOUD_PROJECT=your-project-id
+GOOGLE_CLOUD_LOCATION=us-central1
+```
+
+`GOOGLE_API_KEY` may stay set; with `GOOGLE_GENAI_USE_VERTEXAI=TRUE` the Vertex
+path wins and the two do not conflict. To back a department with GCS, upload its
+data and add a `storage:` block — see the Google Cloud section in
+[../README.md](../README.md).
 
 ## 4. Run
 
@@ -95,6 +123,24 @@ Log in as `alice` (analyst) and ask about HR compensation bands — watch the
 denials stream live. Switch user to `root` (admin, demo mode only) and ask
 the same question: HR unlocks, same prompt. That difference is the product.
 
+## Replay: a demo that needs no keys
+
+Record one real run, then replay it forever with no model calls:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/record_demo.py \
+    --role admin "Compare Q3 engineering spend to the finance budget"
+PYTHONPATH=src .venv/bin/python scripts/record_demo.py \
+    --role analyst "Summarise HR compensation bands"
+```
+
+Recordings appear in the app's left rail under **Replays**. A replay only plays
+for the role it was recorded as — log in as `alice` and the admin recording is
+listed but disabled, which is the same permission story the live run tells.
+
+Recording server-side instead: start with `AGENTIC_RECORD=1` and every run is
+written to `recordings/` as it streams.
+
 ## CLI alternative (no server)
 
 ```bash
@@ -110,6 +156,8 @@ Writes obsidian-flavored markdown + a self-contained graph HTML to `out/`.
 | `503 ... AGENTIC_JWT_SECRET is not set` | Expected fail-closed behavior. Export the secret (step 3) |
 | `401 invalid credentials` on login | Wrong password, or role missing from `permissions.yaml` roles (that variant returns 403). Re-check `users.yaml` hash matches the password |
 | `429 too many failed logins` | Rate limiter tripped: 5 failures/min/IP. Wait a minute or restart the server (buckets are per-process) |
-| `QuotaExhausted` mid-run | Daily Gemini quota gone — not retried by design. Enable billing/Vertex or wait for reset |
+| `QuotaExhausted` mid-run | Daily Gemini quota gone — not retried by design. Switch to Vertex (step 3a) or wait for reset |
+| `credit balance is too low` at the veto step | Anthropic account out of credit. Top it up, or use a replay for the demo |
+| `403 ... log in as 'admin' to replay it` | Working as intended: a recording only replays to the role that made it |
 | Live tests skip in pytest | No API keys loaded — check `.env` sits at repo root and keys are correct |
 | Frontend served separately (vite) can't call the API | Start backend with `AGENTIC_DEV_CORS=1` (dev machines only) |

@@ -10,8 +10,11 @@ Routes:
 - POST /api/run    Bearer token, {prompt} -> text/event-stream
                    events: run_started, gatherer_result, gathered,
                    synthesized, veto, revising, run_state, error
+- GET  /api/replays        recorded runs available to this role
+- POST /api/replay/{name}  Bearer token -> the same event stream, from disk
 - GET  /           reference frontend (static/index.html — Michael replaces)
 - /graphs/<file>   per-run rendered graph viz pages
+- /replays/<file>  graph pages saved beside a recording
 
 Statelessness notes: no sessions, no server-side token store — the JWT
 carries {sub, role}. The authenticated role threads into every permission
@@ -37,7 +40,7 @@ from agentic.client import viz
 from agentic.contracts.config import ConfigError
 from agentic.env import load_env
 from agentic.gatherers import permissions
-from agentic.server import auth, runs
+from agentic.server import auth, replay, runs
 from agentic.server.schemas import FleetResponse, LoginRequest, RunRequest, TokenResponse
 from agentic.server.sse import SseQueue
 
@@ -65,6 +68,10 @@ _active_runs: dict[str, tuple[asyncio.Task, str]] = {}
 
 def _env_path(env_var: str, default: str) -> str:
     return os.environ.get(env_var, default)
+
+
+def _recordings_dir() -> Path:
+    return Path(_env_path("AGENTIC_RECORDINGS_DIR", str(replay.RECORDINGS_DIR)))
 
 
 async def current_principal(
@@ -216,12 +223,28 @@ def create_app() -> FastAPI:
                 payload = {**payload, "run_id": run_id}
             sse.emit(event, payload)
 
+        # Off unless an operator asks for it: recording writes this run's
+        # gathered file contents to disk, which is a deliberate act, not a
+        # default. The recorder wraps emit, so what lands on disk is exactly
+        # what went to the browser.
+        recorder = None
+        if os.environ.get("AGENTIC_RECORD") == "1":
+            recordings = _recordings_dir()
+            recorder = replay.Recorder(
+                prompt=body.prompt,
+                role=principal.role,
+                name=replay.unique_name(body.prompt, principal.role, recordings),
+            )
+            run_emit = recorder.wrap(emit)
+        else:
+            run_emit = emit
+
         async def runner() -> None:
             try:
                 await runs.execute_run(
                     body.prompt,
                     principal.role,
-                    emit=emit,
+                    emit=run_emit,
                     config_path=config_path,
                     config=config,
                 )
@@ -231,6 +254,13 @@ def create_app() -> FastAPI:
             except Exception:
                 pass  # execute_run already emitted `error`; nothing left to stream
             finally:
+                if recorder is not None and recorder.events:
+                    # Best effort: a failed save must not take down the run
+                    # that already streamed successfully.
+                    try:
+                        recorder.save(_recordings_dir())
+                    except OSError:
+                        pass
                 _active_runs.pop(run_id, None)
                 sse.close()
 
@@ -238,6 +268,79 @@ def create_app() -> FastAPI:
         task = asyncio.create_task(runner())
         _background_tasks.add(task)
         task.add_done_callback(_background_tasks.discard)
+        _active_runs[run_id] = (task, principal.username)
+        return StreamingResponse(
+            sse.stream(),
+            media_type="text/event-stream",
+            headers=_SSE_HEADERS,
+        )
+
+    @app.get("/api/replays")
+    def replays(
+        principal: auth.TokenPrincipal = Depends(current_principal),
+    ) -> dict:
+        """Recorded runs, with the role each one needs.
+
+        Everything is listed, not just this principal's — knowing that an
+        admin recording exists is harmless, and hiding it would make the
+        role pin look like a bug rather than the point. The contents stay
+        behind the check in /api/replay.
+        """
+        available = replay.list_recordings(_recordings_dir())
+        for item in available:
+            item["playable"] = item["role"] == principal.role
+        return {"replays": available, "role": principal.role}
+
+    @app.post("/api/replay/{name}")
+    async def replay_run(
+        name: str,
+        speed: float = 1.0,
+        principal: auth.TokenPrincipal = Depends(current_principal),
+    ) -> StreamingResponse:
+        """Stream a recorded run back. No model calls, no filesystem reads.
+
+        The role pin is the whole security story here: a recording holds the
+        files the recording principal was allowed to read, already past every
+        gate. Replaying an admin recording for an analyst would hand over
+        exactly what the gates spent the run refusing, so a mismatch is a
+        403 before a single frame is written.
+        """
+        try:
+            data = replay.load_recording(name, _recordings_dir())
+        except replay.ReplayError as e:
+            raise HTTPException(404, detail=str(e)) from None
+
+        if data.get("role") != principal.role:
+            raise HTTPException(
+                403,
+                detail=(
+                    f"this recording was made as {data.get('role')!r}; "
+                    f"log in as {data.get('role')!r} to replay it"
+                ),
+            )
+
+        sse = SseQueue()
+        run_id = uuid.uuid4().hex
+        recordings = _recordings_dir()
+
+        async def player() -> None:
+            try:
+                await replay.stream_recording(
+                    name, sse.emit, recordings, speed=speed, run_id=run_id
+                )
+            except asyncio.CancelledError:
+                sse.emit("error", {"message": "replay cancelled"})
+                raise
+            except replay.ReplayError as e:
+                sse.emit("error", {"message": str(e)})
+            finally:
+                _active_runs.pop(run_id, None)
+                sse.close()
+
+        task = asyncio.create_task(player())
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+        # Registered like a live run so /cancel works on a replay unchanged.
         _active_runs[run_id] = (task, principal.username)
         return StreamingResponse(
             sse.stream(),
@@ -278,6 +381,15 @@ def create_app() -> FastAPI:
         def about() -> FileResponse:
             """The project page. Self-contained, no API calls, always works."""
             return FileResponse(DOCS_DIR / "index.html")
+
+    # Only the saved graph pages are mounted. The .json recordings sit one
+    # level up and stay off the static surface entirely: they hold the files
+    # the recording principal was cleared to read, and /api/replay is the only
+    # way to them precisely so the role check cannot be skipped by asking for
+    # the file directly.
+    replay_pages = replay.pages_dir(_recordings_dir())
+    replay_pages.mkdir(parents=True, exist_ok=True)
+    app.mount("/replays", StaticFiles(directory=replay_pages), name="replays")
 
     graphs_dir = Path(_env_path("AGENTIC_GRAPHS_DIR", str(runs.GRAPHS_DIR)))
     graphs_dir.mkdir(parents=True, exist_ok=True)

@@ -49,6 +49,44 @@ def build_plan_schema(department_names: list[str]) -> type[BaseModel]:
     return Plan
 
 
+def dedupe_tasks(tasks: list[GatherTask]) -> list[GatherTask]:
+    """Collapse tasks targeting the same department into a single task.
+
+    The planner is asked for one task per relevant department and routinely
+    ignores that, emitting a department twice with two different asks
+    ("find the Q3 spend", "find the Q4 risks"). Each duplicate costs a whole
+    gatherer slot and a whole model call to re-read a department another
+    gatherer is already reading, so a four-wide fan-out can end up covering
+    two departments.
+
+    Dropping the later duplicate would silently lose its ask, so the prompts
+    are joined instead: one gatherer, both questions. Planner order is
+    preserved, and an exact repeat of a prompt is not appended twice.
+    """
+    order: list[str] = []
+    prompts: dict[str, list[str]] = {}
+    first: dict[str, GatherTask] = {}
+
+    for task in tasks:
+        key = task.agent_key
+        if key not in prompts:
+            order.append(key)
+            prompts[key] = []
+            first[key] = task
+        if task.task_prompt and task.task_prompt not in prompts[key]:
+            prompts[key].append(task.task_prompt)
+
+    merged = []
+    for key in order:
+        task = first[key]
+        joined = "; ".join(prompts[key])
+        merged.append(
+            task if joined == task.task_prompt
+            else task.model_copy(update={"task_prompt": joined})
+        )
+    return merged
+
+
 def _department_catalog_text(config: EnvironmentConfig) -> str:
     lines = [f"- {d.name} (reads from {d.path})" for d in config.departments]
     return "\n".join(lines)
@@ -86,6 +124,10 @@ async def _plan_once(prompt: str, config: EnvironmentConfig) -> BaseModel:
             "department. Available departments and what each can access:\n"
             f"{_department_catalog_text(config)}\n\n"
             f"Propose at most {config.gatherers.max_gatherers} tasks. "
+            "Name each department at most once: one gatherer reads a "
+            "department, so a second task for the same department re-reads "
+            "what the first already has. If you need several things from one "
+            "department, ask for all of them in that department's one task. "
             "Only use department names from the list above — you cannot "
             "invent new ones or request access outside what's listed. "
             "For each task, write a specific, concrete task_prompt describing "
@@ -117,8 +159,10 @@ async def _plan_once(prompt: str, config: EnvironmentConfig) -> BaseModel:
 
     plan = Plan.model_validate_json(_strip_code_fences(result_text))
 
-    # Enforce the cap even if the model ignored the instruction.
-    plan.tasks = plan.tasks[: config.gatherers.max_gatherers]
+    # Dedupe before the cap, not after: truncating first would spend slots on
+    # duplicates and then discard a distinct department that never got one.
+    # The cap counts departments, which is what a gatherer actually costs.
+    plan.tasks = dedupe_tasks(plan.tasks)[: config.gatherers.max_gatherers]
     return plan
 
 
@@ -129,6 +173,8 @@ def plan_to_requests(
 ) -> list[GatherRequest]:
     """Convert planner output into the GatherRequests that spawn_gatherers() fans out.
 
+    At most one request per department — see dedupe_tasks.
+
     The role comes from the trusted permissions config via
     manager.plan_and_gather; the default here is only a safe fallback for
     direct callers. spawn_gatherers re-pins the role to the permissions
@@ -136,7 +182,10 @@ def plan_to_requests(
     """
     agent_config = config.agent_types[AgentType.FILE_GATHERER]
     requests = []
-    for i, task in enumerate(plan.tasks):
+    # Idempotent after run_planner already deduped; this is the boundary that
+    # actually decides the fan-out, so the one-gatherer-per-department
+    # invariant is enforced here too and holds for any caller.
+    for i, task in enumerate(dedupe_tasks(plan.tasks)):
         requests.append(
             GatherRequest(
                 request_id=f"{task.agent_key}-{i}",

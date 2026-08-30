@@ -126,6 +126,21 @@ h2.sec {
 }
 .example:hover { border-color: var(--accent); color: var(--text); }
 
+/* ---------- replays ---------- */
+.replay {
+  display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left;
+  padding: 7px 9px; margin-bottom: 6px; font-size: 12px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 7px; color: var(--dim);
+}
+.replay:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+.replay:disabled { opacity: .45; }
+.replay .prompt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; }
+.replay .as { font-size: 10px; color: var(--faint); white-space: nowrap; }
+.replay-note { font-size: 11px; color: var(--faint); line-height: 1.5; }
+.chip.replay-chip { background: #33301f; color: #e0c987; }
+
 /* ---------- controls ---------- */
 .ctrl { margin-bottom: 11px; }
 .ctrl-head {
@@ -278,6 +293,12 @@ select {
       <div id="err" hidden></div>
     </section>
 
+    <section id="replay-section" hidden>
+      <h2 class="sec">Replays</h2>
+      <div id="replays"></div>
+      <div class="replay-note" id="replay-note"></div>
+    </section>
+
     <section>
       <h2 class="sec">Run controls</h2>
       <div class="ctrl">
@@ -357,7 +378,7 @@ const $ = (id) => document.getElementById(id);
 let token = null, me = null, fleet = null;
 let network = null, nodes = null, edges = null;
 let deptColor = {};          // department -> hex
-let runId = null, running = false;
+let runId = null, running = false, replaying = false;
 let queue = [], draining = false;   // staggered node insertion
 // username -> password, populated only when the server enables demo mode
 // (GET /api/demo-mode). Empty in any real deployment.
@@ -463,6 +484,7 @@ async function enterApp() {
   $("who").textContent = `${me.username} · ${me.role}`;
   $("who").className = "chip role-" + me.role;
   await loadFleet();
+  await loadReplays();
   initGraph();
   renderExamples();
 }
@@ -729,6 +751,109 @@ $("cancel-btn").addEventListener("click", async () => {
   $("stage-label").textContent = "cancelling…";
 });
 
+/* ============================ replays ============================ */
+
+/* A recording is a past run's exact event stream, replayed from disk with no
+   model calls. It is pinned to the role it was recorded as: the server
+   refuses a mismatch, and this list says so rather than hiding it, because
+   "you are not allowed to see this" is the thing the project is about. */
+async function loadReplays() {
+  const box = $("replays");
+  box.textContent = "";
+  $("replay-note").textContent = "";
+  let data;
+  try {
+    const res = await api("/api/replays");
+    if (!res.ok) { $("replay-section").hidden = true; return; }
+    data = await res.json();
+  } catch { $("replay-section").hidden = true; return; }
+
+  const list = (data && data.replays) || [];
+  $("replay-section").hidden = list.length === 0;
+  if (!list.length) return;
+
+  for (const item of list) {
+    const b = document.createElement("button");
+    b.className = "replay";
+    b.type = "button";
+    b.disabled = !item.playable;
+    const prompt = document.createElement("span");
+    prompt.className = "prompt";
+    prompt.textContent = item.prompt || item.name;
+    const as = document.createElement("span");
+    as.className = "as";
+    as.textContent = item.playable
+      ? `${Math.round(item.duration)}s`
+      : `needs ${item.role}`;
+    b.append(prompt, as);
+    b.title = item.playable
+      ? `replay ${item.name} — recorded as ${item.role}, no API calls`
+      : `recorded as ${item.role}; log in as ${item.role} to replay it`;
+    if (item.playable) b.addEventListener("click", () => startReplay(item));
+    box.appendChild(b);
+  }
+  $("replay-note").textContent =
+    "Recorded runs. No model calls, no files read — the same events, from disk.";
+}
+
+async function startReplay(item) {
+  if (running) return;
+  beginRun();
+  replaying = true;
+  $("prompt").value = item.prompt || "";
+  $("run-mode").hidden = false;
+  $("run-mode").className = "chip replay-chip";
+  $("run-mode").textContent = "replay · no API calls";
+  $("stage-label").textContent = "replaying a recorded run…";
+
+  let res;
+  try {
+    res = await api(`/api/replay/${encodeURIComponent(item.name)}`, { method: "POST" });
+  } catch (e) { finishRun(); showError(String(e)); return; }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    finishRun();
+    showError(data.detail || `replay failed (${res.status})`);
+    return;
+  }
+  await consumeStream(res);
+  finishRun();
+}
+
+/* ============================ running ============================ */
+
+/* Shared by a live run and a replay: same reset, same event handling, because
+   a replay is the same event stream. */
+function beginRun() {
+  running = true; replaying = false; runId = null;
+  $("run-btn").disabled = true; $("cancel-btn").disabled = false;
+  $("run-mode").hidden = true;
+  $("err").hidden = true;
+  $("answer-head").hidden = true; $("answer-body").textContent = "";
+  $("answer-empty").hidden = false;
+  $("veto-section").hidden = true; $("veto-list").textContent = "";
+  resetGraph();
+  renderFleet();
+  setStage("plan");
+}
+
+// EventSource cannot POST, so the SSE stream is parsed off the fetch body.
+async function consumeStream(res) {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf("\n\n")) >= 0) {
+      handleFrame(buf.slice(0, idx));
+      buf = buf.slice(idx + 2);
+    }
+  }
+}
+
 async function startRun() {
   const prompt = $("prompt").value.trim();
   if (!prompt || running) return;
@@ -740,15 +865,7 @@ async function startRun() {
   const locked = fleet.departments.filter((d) => !d.readable).map((d) => d.name);
   const selected = checked.concat(locked);
 
-  running = true; runId = null;
-  $("run-btn").disabled = true; $("cancel-btn").disabled = false;
-  $("err").hidden = true;
-  $("answer-head").hidden = true; $("answer-body").textContent = "";
-  $("answer-empty").hidden = false;
-  $("veto-section").hidden = true; $("veto-list").textContent = "";
-  resetGraph();
-  renderFleet();
-  setStage("plan");
+  beginRun();
   $("stage-label").textContent = "planning the fan-out…";
 
   const body = {
@@ -771,26 +888,16 @@ async function startRun() {
     return;
   }
 
-  // EventSource cannot POST, so the SSE stream is parsed off the fetch body.
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buf = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    let idx;
-    while ((idx = buf.indexOf("\n\n")) >= 0) {
-      handleFrame(buf.slice(0, idx));
-      buf = buf.slice(idx + 2);
-    }
-  }
+  await consumeStream(res);
   finishRun();
 }
 
 function finishRun() {
   running = false; runId = null;
   $("run-btn").disabled = false; $("cancel-btn").disabled = true;
+  // The replay chip stays up after the stream ends: whether what is on screen
+  // came from a live fleet or from disk should never be ambiguous.
+  if (!replaying) $("run-mode").hidden = true;
 }
 
 const counts = {};
@@ -811,6 +918,7 @@ function onEvent(event, p) {
   switch (event) {
     case "run_started":
       runId = p.run_id;
+      if (p.replay) replaying = true;
       Object.keys(counts).forEach((k) => delete counts[k]);
       break;
 
