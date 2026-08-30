@@ -1,0 +1,551 @@
+{
+  "version": 1,
+  "name": "hr-bands-analyst",
+  "prompt": "What are the HR compensation bands, and how did Q3 engineering spend compare to budget?",
+  "role": "analyst",
+  "recorded_at": "2026-08-30T18:55:27+00:00",
+  "duration": 40.209,
+  "events": [
+    {
+      "t": 0.0,
+      "event": "run_started",
+      "payload": {
+        "prompt": "What are the HR compensation bands, and how did Q3 engineering spend compare to budget?",
+        "role": "analyst"
+      }
+    },
+    {
+      "t": 4.126,
+      "event": "scanning",
+      "payload": {
+        "department": "hr",
+        "candidates": 4
+      }
+    },
+    {
+      "t": 4.126,
+      "event": "file_denied",
+      "payload": {
+        "department": "hr",
+        "path": "comp-bands.md"
+      }
+    },
+    {
+      "t": 4.126,
+      "event": "file_denied",
+      "payload": {
+        "department": "hr",
+        "path": "headcount-plan.csv"
+      }
+    },
+    {
+      "t": 4.126,
+      "event": "file_denied",
+      "payload": {
+        "department": "hr",
+        "path": "org-changes-draft.md"
+      }
+    },
+    {
+      "t": 4.126,
+      "event": "file_denied",
+      "payload": {
+        "department": "hr",
+        "path": "performance-reviews/q3-summary.md"
+      }
+    },
+    {
+      "t": 4.127,
+      "event": "downloading",
+      "payload": {
+        "department": "finance",
+        "provider": "gcs"
+      }
+    },
+    {
+      "t": 7.189,
+      "event": "file_read",
+      "payload": {
+        "department": "finance",
+        "path": "q3-budget.csv",
+        "bytes": 137
+      }
+    },
+    {
+      "t": 7.189,
+      "event": "file_read",
+      "payload": {
+        "department": "finance",
+        "path": "q3-actuals.csv",
+        "bytes": 167
+      }
+    },
+    {
+      "t": 7.189,
+      "event": "file_read",
+      "payload": {
+        "department": "finance",
+        "path": "forecast-fy26.md",
+        "bytes": 319
+      }
+    },
+    {
+      "t": 7.189,
+      "event": "file_read",
+      "payload": {
+        "department": "finance",
+        "path": "headcount-costs.csv",
+        "bytes": 95
+      }
+    },
+    {
+      "t": 7.189,
+      "event": "file_read",
+      "payload": {
+        "department": "finance",
+        "path": "vendor-contracts/cloud-renewal.md",
+        "bytes": 361
+      }
+    },
+    {
+      "t": 7.189,
+      "event": "file_read",
+      "payload": {
+        "department": "finance",
+        "path": "vendor-contracts/saas-audit.md",
+        "bytes": 311
+      }
+    },
+    {
+      "t": 7.189,
+      "event": "assessing",
+      "payload": {
+        "department": "finance",
+        "count": 6
+      }
+    },
+    {
+      "t": 18.962,
+      "event": "file_assessed",
+      "payload": {
+        "department": "finance",
+        "path": "q3-budget.csv",
+        "relevant": true,
+        "note": "Contains Q3 engineering budgeted and actual expenditures, showing $50,000 budgeted vs $42,000 actual for infra, and $120,000 budgeted vs $118,000 actual for headcount."
+      }
+    },
+    {
+      "t": 18.962,
+      "event": "file_assessed",
+      "payload": {
+        "department": "finance",
+        "path": "q3-actuals.csv",
+        "relevant": true,
+        "note": "Contains Q3 engineering budgeted and actual expenditures with variance, showing -$8,000 variance for infra and -$2,000 variance for headcount."
+      }
+    },
+    {
+      "t": 18.962,
+      "event": "file_assessed",
+      "payload": {
+        "department": "finance",
+        "path": "forecast-fy26.md",
+        "relevant": true,
+        "note": "Provides context on the Q3 engineering budget variance, noting that headcount came in under budget because two hires slipped from Q3 into Q4."
+      }
+    },
+    {
+      "t": 18.962,
+      "event": "file_assessed",
+      "payload": {
+        "department": "finance",
+        "path": "headcount-costs.csv",
+        "relevant": true,
+        "note": "Provides Q3-2026 actual headcount expenditures of $118,000 for the engineering team."
+      }
+    },
+    {
+      "t": 18.962,
+      "event": "file_assessed",
+      "payload": {
+        "department": "finance",
+        "path": "vendor-contracts/cloud-renewal.md",
+        "relevant": true,
+        "note": "Provides context on the engineering infra budget, mentioning that Q3 actuals came in $8,000 under budget."
+      }
+    },
+    {
+      "t": 18.962,
+      "event": "file_assessed",
+      "payload": {
+        "department": "finance",
+        "path": "vendor-contracts/saas-audit.md",
+        "relevant": false,
+        "note": "This file details a SaaS seat audit from August 2026 and does not contain Q3 engineering budget or expenditure comparison data."
+      }
+    },
+    {
+      "t": 18.962,
+      "event": "gatherer_result",
+      "payload": {
+        "department": "hr",
+        "kept": 0,
+        "denied": [
+          "comp-bands.md",
+          "headcount-plan.csv",
+          "org-changes-draft.md",
+          "performance-reviews/q3-summary.md"
+        ],
+        "errors": []
+      }
+    },
+    {
+      "t": 18.963,
+      "event": "gatherer_result",
+      "payload": {
+        "department": "finance",
+        "kept": 5,
+        "denied": [],
+        "errors": []
+      }
+    },
+    {
+      "t": 18.963,
+      "event": "gathered",
+      "payload": {
+        "gatherers": 2,
+        "kept": 5,
+        "denied": 4,
+        "departments": [
+          "hr",
+          "finance"
+        ]
+      }
+    },
+    {
+      "t": 27.261,
+      "event": "synthesized",
+      "payload": {
+        "revision": 0
+      }
+    },
+    {
+      "t": 40.205,
+      "event": "veto",
+      "payload": {
+        "attempt": 1,
+        "approved": true,
+        "reasons": [
+          "Verified every figure against sources: infra budgeted $50,000 / actual $42,000 / variance -$8,000 and headcount budgeted $120,000 / actual $118,000 / variance -$2,000 all match [[finance/q3-budget.csv]] and [[finance/q3-actuals.csv]].",
+          "The 9 engineering headcount figure matches [[finance/headcount-costs.csv]], the slipped-hires explanation matches [[finance/forecast-fy26.md]], and the oversized cloud commitment claim matches the recommendation in [[finance/vendor-contracts/cloud-renewal.md]].",
+          "All citations are from the finance department, which matches the frontmatter and the environment config; the HR compensation bands portion is honestly reported as unavailable due to permissions, consistent with hr being readable only by admin."
+        ]
+      }
+    },
+    {
+      "t": 40.209,
+      "event": "run_state",
+      "payload": {
+        "citations": {
+          "cited": 5,
+          "resolved": 5,
+          "unresolved": [],
+          "gathered": 5,
+          "uncited_files": [],
+          "paragraphs": 1,
+          "paragraphs_cited": 1,
+          "integrity": 1.0,
+          "grounding": 1.0,
+          "usage": 1.0
+        },
+        "approved": true,
+        "attempts": 1,
+        "obsidian_markdown": "---\nprompt: What are the HR compensation bands, and how did Q3 engineering spend compare\n  to budget?\nrevision: 0\ndepartments:\n- finance\n---\n\n# Answer\n\n### HR Compensation Bands\nInformation regarding the HR compensation bands is unavailable, as access to the relevant file (`comp-bands.md`) was denied by permissions.\n\n### Q3 Engineering Spend vs. Budget\nThe engineering department's Q3 expenditures were under budget across both infrastructure and headcount:\n\n*   **Infrastructure (Infra):** The budgeted amount was $50,000 [[finance/q3-budget.csv]] compared to an actual spend of $42,000 [[finance/q3-budget.csv]], resulting in a -$8,000 variance [[finance/q3-actuals.csv]]. This under-budget actual spend suggests that the current cloud contract commitment is oversized [[finance/vendor-contracts/cloud-renewal.md]].\n*   **Headcount:** The budgeted amount was $120,000 [[finance/q3-budget.csv]] compared to an actual spend of $118,000 [[finance/q3-budget.csv]] for 9 headcount [[finance/headcount-costs.csv]], resulting in a -$2,000 variance [[finance/q3-actuals.csv]]. This under-spend occurred because two planned engineering hires slipped from Q3 into Q4 [[finance/forecast-fy26.md]].\n\n## Sources\n\n- [[finance/q3-budget.csv]] #finance\n- [[finance/q3-actuals.csv]] #finance\n- [[finance/forecast-fy26.md]] #finance\n- [[finance/headcount-costs.csv]] #finance\n- [[finance/vendor-contracts/cloud-renewal.md]] #finance",
+        "sources": [
+          "finance/q3-budget.csv",
+          "finance/q3-actuals.csv",
+          "finance/forecast-fy26.md",
+          "finance/headcount-costs.csv",
+          "finance/vendor-contracts/cloud-renewal.md"
+        ],
+        "departments_used": [
+          "finance"
+        ],
+        "revision": 0,
+        "reasons": [
+          "Verified every figure against sources: infra budgeted $50,000 / actual $42,000 / variance -$8,000 and headcount budgeted $120,000 / actual $118,000 / variance -$2,000 all match [[finance/q3-budget.csv]] and [[finance/q3-actuals.csv]].",
+          "The 9 engineering headcount figure matches [[finance/headcount-costs.csv]], the slipped-hires explanation matches [[finance/forecast-fy26.md]], and the oversized cloud commitment claim matches the recommendation in [[finance/vendor-contracts/cloud-renewal.md]].",
+          "All citations are from the finance department, which matches the frontmatter and the environment config; the HR compensation bands portion is honestly reported as unavailable due to permissions, consistent with hr being readable only by admin."
+        ],
+        "viz_path": "out/graphs/run-20260830-115446-what-are-the-hr-compensation-ban.html",
+        "graph": {
+          "nodes": [
+            {
+              "id": "answer",
+              "label": "Answer",
+              "kind": "answer",
+              "shape": "dot",
+              "size": 28,
+              "color": {
+                "background": "#e6e6fa",
+                "border": "#a9a1e1"
+              },
+              "full_label": "What are the HR compensation bands, and how did Q3 engineering spend compare to budget?",
+              "detail": "### HR Compensation Bands\nInformation regarding the HR compensation bands is unavailable, as access to the relevant file (`comp-bands.md`) was denied by permissions.\n\n### Q3 Engineering Spend vs. Budget\nThe engineering department's Q3 expenditures were under budget across both infrastructure and headcount:\n\n*   **Infrastructure (Infra):** The budgeted amount was $50,000 [q3-budget.csv] compared to an actual spend of $42,000 [q3-budget.csv], resulting in a -$8,000 variance [q3-actuals.csv]. This under-budget actual spend suggests that the current cloud contract commitment is oversized [cloud-renewal.md].\n*   **Headcount:** The budgeted amount was $120,000 [q3-budget.csv] compared to an actual spend of $118,000 [q3-budget.csv] for 9 headcount [headcount-costs.csv], resulting in a -$2,000 variance [q3-actuals.csv]. This under-spend occurred because two planned engineering hires slipped from Q3 into Q4 [forecast-fy26.md]."
+            },
+            {
+              "id": "dept:finance",
+              "label": "finance",
+              "kind": "department",
+              "shape": "hexagon",
+              "size": 18,
+              "color": {
+                "background": "#7aa2f7",
+                "border": "#7aa2f7"
+              },
+              "detail": "department cluster \u2014 files colored #7aa2f7"
+            },
+            {
+              "id": "dept:hr",
+              "label": "hr",
+              "kind": "department",
+              "shape": "hexagon",
+              "size": 18,
+              "color": {
+                "background": "#f7768e",
+                "border": "#f7768e"
+              },
+              "detail": "department cluster \u2014 files colored #f7768e"
+            },
+            {
+              "id": "file:finance/q3-budget.csv",
+              "label": "q3-budget.csv",
+              "kind": "file",
+              "shape": "dot",
+              "size": 11,
+              "color": {
+                "background": "#7aa2f7",
+                "border": "#7aa2f7"
+              },
+              "full_label": "finance/q3-budget.csv",
+              "detail": "Contains Q3 engineering budgeted and actual expenditures, showing $50,000 budgeted vs $42,000 actual for infra, and $120,000 budgeted vs $118,000 actual for headcount."
+            },
+            {
+              "id": "file:finance/q3-actuals.csv",
+              "label": "q3-actuals.csv",
+              "kind": "file",
+              "shape": "dot",
+              "size": 11,
+              "color": {
+                "background": "#7aa2f7",
+                "border": "#7aa2f7"
+              },
+              "full_label": "finance/q3-actuals.csv",
+              "detail": "Contains Q3 engineering budgeted and actual expenditures with variance, showing -$8,000 variance for infra and -$2,000 variance for headcount."
+            },
+            {
+              "id": "file:finance/vendor-contracts/cloud-renewal.md",
+              "label": "vendor-contracts/cloud-renewal.md",
+              "kind": "file",
+              "shape": "dot",
+              "size": 11,
+              "color": {
+                "background": "#7aa2f7",
+                "border": "#7aa2f7"
+              },
+              "full_label": "finance/vendor-contracts/cloud-renewal.md",
+              "detail": "Provides context on the engineering infra budget, mentioning that Q3 actuals came in $8,000 under budget."
+            },
+            {
+              "id": "file:finance/headcount-costs.csv",
+              "label": "headcount-costs.csv",
+              "kind": "file",
+              "shape": "dot",
+              "size": 11,
+              "color": {
+                "background": "#7aa2f7",
+                "border": "#7aa2f7"
+              },
+              "full_label": "finance/headcount-costs.csv",
+              "detail": "Provides Q3-2026 actual headcount expenditures of $118,000 for the engineering team."
+            },
+            {
+              "id": "file:finance/forecast-fy26.md",
+              "label": "forecast-fy26.md",
+              "kind": "file",
+              "shape": "dot",
+              "size": 11,
+              "color": {
+                "background": "#7aa2f7",
+                "border": "#7aa2f7"
+              },
+              "full_label": "finance/forecast-fy26.md",
+              "detail": "Provides context on the Q3 engineering budget variance, noting that headcount came in under budget because two hires slipped from Q3 into Q4."
+            },
+            {
+              "id": "denied:hr/comp-bands.md",
+              "label": "comp-bands.md \ud83d\udd12",
+              "kind": "denied",
+              "shape": "dot",
+              "size": 11,
+              "color": {
+                "background": "#3a3a44",
+                "border": "#565662"
+              },
+              "shapeProperties": {
+                "borderDashes": [
+                  4,
+                  4
+                ]
+              },
+              "font": {
+                "color": "#6a6a78"
+              },
+              "full_label": "hr/comp-bands.md",
+              "detail": "stripped by the permission gate \u2014 the principal role may not read this file"
+            },
+            {
+              "id": "denied:hr/headcount-plan.csv",
+              "label": "headcount-plan.csv \ud83d\udd12",
+              "kind": "denied",
+              "shape": "dot",
+              "size": 11,
+              "color": {
+                "background": "#3a3a44",
+                "border": "#565662"
+              },
+              "shapeProperties": {
+                "borderDashes": [
+                  4,
+                  4
+                ]
+              },
+              "font": {
+                "color": "#6a6a78"
+              },
+              "full_label": "hr/headcount-plan.csv",
+              "detail": "stripped by the permission gate \u2014 the principal role may not read this file"
+            },
+            {
+              "id": "denied:hr/org-changes-draft.md",
+              "label": "org-changes-draft.md \ud83d\udd12",
+              "kind": "denied",
+              "shape": "dot",
+              "size": 11,
+              "color": {
+                "background": "#3a3a44",
+                "border": "#565662"
+              },
+              "shapeProperties": {
+                "borderDashes": [
+                  4,
+                  4
+                ]
+              },
+              "font": {
+                "color": "#6a6a78"
+              },
+              "full_label": "hr/org-changes-draft.md",
+              "detail": "stripped by the permission gate \u2014 the principal role may not read this file"
+            },
+            {
+              "id": "denied:hr/performance-reviews/q3-summary.md",
+              "label": "performance-reviews/q3-summary.md \ud83d\udd12",
+              "kind": "denied",
+              "shape": "dot",
+              "size": 11,
+              "color": {
+                "background": "#3a3a44",
+                "border": "#565662"
+              },
+              "shapeProperties": {
+                "borderDashes": [
+                  4,
+                  4
+                ]
+              },
+              "font": {
+                "color": "#6a6a78"
+              },
+              "full_label": "hr/performance-reviews/q3-summary.md",
+              "detail": "stripped by the permission gate \u2014 the principal role may not read this file"
+            }
+          ],
+          "edges": [
+            {
+              "from": "answer",
+              "to": "file:finance/q3-budget.csv"
+            },
+            {
+              "from": "file:finance/q3-budget.csv",
+              "to": "dept:finance"
+            },
+            {
+              "from": "answer",
+              "to": "file:finance/q3-actuals.csv"
+            },
+            {
+              "from": "file:finance/q3-actuals.csv",
+              "to": "dept:finance"
+            },
+            {
+              "from": "answer",
+              "to": "file:finance/vendor-contracts/cloud-renewal.md"
+            },
+            {
+              "from": "file:finance/vendor-contracts/cloud-renewal.md",
+              "to": "dept:finance"
+            },
+            {
+              "from": "answer",
+              "to": "file:finance/headcount-costs.csv"
+            },
+            {
+              "from": "file:finance/headcount-costs.csv",
+              "to": "dept:finance"
+            },
+            {
+              "from": "answer",
+              "to": "file:finance/forecast-fy26.md"
+            },
+            {
+              "from": "file:finance/forecast-fy26.md",
+              "to": "dept:finance"
+            },
+            {
+              "from": "denied:hr/comp-bands.md",
+              "to": "dept:hr",
+              "dashes": true
+            },
+            {
+              "from": "denied:hr/headcount-plan.csv",
+              "to": "dept:hr",
+              "dashes": true
+            },
+            {
+              "from": "denied:hr/org-changes-draft.md",
+              "to": "dept:hr",
+              "dashes": true
+            },
+            {
+              "from": "denied:hr/performance-reviews/q3-summary.md",
+              "to": "dept:hr",
+              "dashes": true
+            }
+          ],
+          "meta": {
+            "title": "What are the HR compensation bands, and how did Q3 engineering spend compare to budget?",
+            "revision": 0,
+            "status": "approved",
+            "reasons": [
+              "Verified every figure against sources: infra budgeted $50,000 / actual $42,000 / variance -$8,000 and headcount budgeted $120,000 / actual $118,000 / variance -$2,000 all match [[finance/q3-budget.csv]] and [[finance/q3-actuals.csv]].",
+              "The 9 engineering headcount figure matches [[finance/headcount-costs.csv]], the slipped-hires explanation matches [[finance/forecast-fy26.md]], and the oversized cloud commitment claim matches the recommendation in [[finance/vendor-contracts/cloud-renewal.md]].",
+              "All citations are from the finance department, which matches the frontmatter and the environment config; the HR compensation bands portion is honestly reported as unavailable due to permissions, consistent with hr being readable only by admin."
+            ]
+          }
+        },
+        "viz_url": "/graphs/run-20260830-115446-what-are-the-hr-compensation-ban.html"
+      }
+    }
+  ]
+}

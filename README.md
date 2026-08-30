@@ -107,7 +107,10 @@ with **Cloud Storage** instead of the local filesystem.
 
 **Vertex AI** replaces the AI Studio free tier, whose 20 requests/day/model cap
 allows roughly three runs. Authenticate once with user ADC and set three
-variables — no service-account key, and nothing secret enters the repo:
+variables — no service-account key, and nothing secret enters the repo.
+Note `global`: the Gemini 3.x models are not served from regional endpoints,
+and a regional value returns a bare 404 that reads like the model does not
+exist.
 
 ```bash
 gcloud auth application-default login
@@ -116,7 +119,7 @@ gcloud auth application-default login
 ```bash
 GOOGLE_GENAI_USE_VERTEXAI=TRUE
 GOOGLE_CLOUD_PROJECT=your-project-id
-GOOGLE_CLOUD_LOCATION=us-central1
+GOOGLE_CLOUD_LOCATION=global
 ```
 
 **Cloud Storage** turns a department into a cloud-backed one. Upload the data
@@ -342,6 +345,40 @@ docs/                # project page + startup and security docs
 recordings/          # recorded runs for offline replay
 scripts/             # password hashing, GCS upload, demo recording, viz demo
 ```
+
+## Reproducible testing
+
+From a clean clone, in order:
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+
+cp config/environment.example.yaml config/environment.yaml
+cp config/permissions.example.yaml config/permissions.yaml
+cp config/users.example.yaml      config/users.yaml
+python scripts/hash_password.py            # paste the output as password_hash:
+
+# .env at the repo root
+GOOGLE_GENAI_USE_VERTEXAI=TRUE
+GOOGLE_CLOUD_PROJECT=<your-project>
+GOOGLE_CLOUD_LOCATION=global               # Gemini 3.x is not served regionally
+ANTHROPIC_API_KEY=<key>
+AGENTIC_JWT_SECRET=$(python -c "import secrets;print(secrets.token_hex(32))")
+AGENTIC_DEMO_MODE=1
+
+gcloud auth application-default login
+.venv/bin/uvicorn agentic.server.app:create_app --factory --port 8000
+```
+
+Then <http://localhost:8000>. Sign in as the analyst, ask *"What are the HR
+compensation bands, and how did Q3 engineering spend compare to budget?"*, and
+watch four HR files lock before a byte is read. Sign in as the admin and ask the
+same thing.
+
+**Without API keys**, `recordings/` ships two real recorded runs. Pick one from
+the Replays panel and it streams the exact events the live run produced, with no
+model calls. A recording only replays to the role that recorded it.
 
 ## Tests
 

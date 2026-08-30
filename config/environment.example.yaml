@@ -49,15 +49,15 @@ gatherers:
 
 models:
   client: claude-fable-5
-  state_manager: gemini-2.5-flash
-  gatherer: gemini-2.5-flash
+  state_manager: gemini-3.5-flash
+  gatherer: gemini-3.5-flash
   veto: claude-fable-5
   # Veto models the frontend may switch between at run time (allowlist).
   veto_choices: [claude-fable-5, claude-opus-5, claude-haiku-4-5-20251001]
 
 agent_types:
   file_gatherer:
-    model: gemini-2.5-flash
+    model: gemini-3.5-flash
     max_files: 10
 
 veto:
