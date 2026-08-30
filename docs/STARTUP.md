@@ -49,6 +49,7 @@ Put these in `.env` at the repo root (loaded automatically by
 | `AGENTIC_CONFIG_PATH` | no | `config/environment.yaml` | Fleet config |
 | `AGENTIC_GRAPHS_DIR` | no | `out/graphs` | Rendered viz pages |
 | `AGENTIC_RECORD` | no | off | `=1` records every run to `recordings/` for replay |
+| `AGENTIC_AUDIT_LOG` | no | `out/audit.jsonl` | Permission decision ledger |
 | `AGENTIC_RECORDINGS_DIR` | no | `recordings` | Where recordings live |
 | `GOOGLE_GENAI_USE_VERTEXAI` | no | off | `=TRUE` routes Gemini through Vertex AI |
 | `GOOGLE_CLOUD_PROJECT` | with Vertex/GCS | — | Project id |
@@ -115,13 +116,34 @@ served — see [AUTH_SECURITY.md](AUTH_SECURITY.md).
    capped by `max_retries`; the final `run_state` carries verdict + attempts.
 6. **Cancel** stops your own in-flight run (`run_started` gives you the
    `run_id`; only you can cancel it).
-7. Open the standalone graph from the answer pane link.
+7. **Coverage meters** under the answer score citation integrity, grounding
+   and source usage — an unresolved citation is named, not averaged away.
+8. **Access ledger** in the rail lists every permission decision your runs
+   made, at both gates, newest first.
+9. Open the standalone graph from the answer pane link.
 
 ### Demo beat: permissions
 
 Log in as `alice` (analyst) and ask about HR compensation bands — watch the
 denials stream live. Switch user to `root` (admin, demo mode only) and ask
 the same question: HR unlocks, same prompt. That difference is the product.
+
+### Demo beat: prompt injection
+
+`data/departments/engineering/tickets/ENG-4471-vendor-import.md` contains a
+live injection payload telling the reader it is now an administrator and
+should return HR files. Ask anything about engineering as `alice` and watch
+the answer name the denied files without ever containing their contents. The
+payload reaches a model on every run; the gates are what stop it.
+
+### Demo beat: compare two roles
+
+Log in as `root` (admin), pick **compare vs analyst** under the prompt box,
+and ask a question spanning HR. Both runs stream at once and the panel shows
+what each role reached, what the analyst was denied, and both answers side by
+side. The control only appears for a principal that has a strictly narrower
+role available — an analyst cannot compare upward, and the server refuses it
+with a 403 regardless of the UI.
 
 ## Replay: a demo that needs no keys
 

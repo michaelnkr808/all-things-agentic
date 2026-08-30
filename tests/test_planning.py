@@ -158,3 +158,46 @@ async def test_planner_dedupes_before_applying_the_cap(monkeypatch):
 
     assert [t.agent_key for t in plan.tasks] == ["engineering", "finance", "hr"]
     assert plan.tasks[0].task_prompt == "a; b"
+
+
+async def test_empty_plan_fails_fast_instead_of_synthesizing_from_nothing(monkeypatch):
+    """A plan with no tasks gathers no files, so the synthesizer would be asked
+    to answer from an empty brief and every veto retry would burn on it."""
+    config = load_config("config/environment.example.yaml")
+
+    class FakeRunner:
+        def __init__(self, **kwargs):
+            pass
+
+        async def run_async(self, **kwargs):
+            yield SimpleNamespace(
+                is_final_response=lambda: True,
+                content=SimpleNamespace(parts=[SimpleNamespace(text='{"tasks": []}')]),
+            )
+
+    monkeypatch.setattr(manager_planning, "Runner", FakeRunner)
+    with pytest.raises(RuntimeError, match="empty plan"):
+        await manager_planning.run_planner("q", config)
+
+
+async def test_empty_plan_is_not_retried(monkeypatch):
+    """Re-rolling the same prompt against the same catalog is not the fix, so
+    the shared retry policy must let this through on the first attempt."""
+    config = load_config("config/environment.example.yaml")
+    calls = {"n": 0}
+
+    class FakeRunner:
+        def __init__(self, **kwargs):
+            pass
+
+        async def run_async(self, **kwargs):
+            calls["n"] += 1
+            yield SimpleNamespace(
+                is_final_response=lambda: True,
+                content=SimpleNamespace(parts=[SimpleNamespace(text='{"tasks": []}')]),
+            )
+
+    monkeypatch.setattr(manager_planning, "Runner", FakeRunner)
+    with pytest.raises(RuntimeError):
+        await manager_planning.run_planner("q", config)
+    assert calls["n"] == 1

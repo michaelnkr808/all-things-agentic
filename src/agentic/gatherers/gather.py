@@ -37,6 +37,7 @@ from pydantic import BaseModel
 
 from agentic.contracts.config import DepartmentConfig, EnvironmentConfig
 from agentic.contracts.messages import GatheredFile, GatherRequest, GatherResult
+from agentic import audit
 from agentic.gatherers import permissions
 from agentic.retry import with_retry
 
@@ -186,8 +187,18 @@ def _gate(
         rel = path.relative_to(root).as_posix()
         if permissions.allowed(rel, perms.principal.role, dept, perms):
             allowed[rel] = path
+            audit.record(
+                audit.ALLOW, department=dept.name, path=rel, stage="pre-read"
+            )
         else:
             result.denied.append(rel)
+            audit.record(
+                audit.DENY,
+                department=dept.name,
+                path=rel,
+                stage="pre-read",
+                reason="role may not read this path in this department",
+            )
             # Denials are narrated as they happen, before a single file is
             # opened — the locked nodes appear first, which is the point.
             narrate("file_denied", path=rel)

@@ -159,6 +159,21 @@ async def _plan_once(prompt: str, config: EnvironmentConfig) -> BaseModel:
 
     plan = Plan.model_validate_json(_strip_code_fences(result_text))
 
+    # An empty plan is not an empty answer, it is a failed plan. Left alone it
+    # fans out zero gatherers, hands the synthesizer an empty brief, and the
+    # run spends a synthesis plus every veto retry producing an answer with no
+    # source material behind it — expensive, and the logs never name the cause.
+    # Not transient (see agentic/retry.py): re-rolling the same prompt against
+    # the same catalog is not the fix, so this fails fast and says what is.
+    if not plan.tasks:
+        raise RuntimeError(
+            f"planner returned an empty plan for this prompt — no department "
+            f"was selected, so there is nothing to gather. Rephrase the prompt "
+            f"to name what you are looking for, or check that the departments "
+            f"it should reach are listed in the environment config "
+            f"({', '.join(department_names)})."
+        )
+
     # Dedupe before the cap, not after: truncating first would spend slots on
     # duplicates and then discard a distinct department that never got one.
     # The cap counts departments, which is what a gatherer actually costs.

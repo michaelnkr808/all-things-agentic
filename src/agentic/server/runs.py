@@ -25,6 +25,7 @@ from agentic import pipeline
 from agentic.contracts.config import ConfigError, EnvironmentConfig, load_config
 from agentic.gatherers import permissions
 from agentic.gatherers.permissions import PermissionsConfig, load_permissions_config
+from agentic.server.compare import comparable_roles
 from agentic.server.schemas import FleetDepartment, FleetResponse
 
 DEFAULT_CONFIG_PATH = "config/environment.yaml"
@@ -118,6 +119,7 @@ def build_fleet(role: str, config: EnvironmentConfig) -> FleetResponse:
             "veto": config.models.veto,
         },
         veto_choices=list(config.models.veto_choices),
+        compare_roles=comparable_roles(perms.principal.role, perms),
         max_gatherers=config.gatherers.max_gatherers,
         max_files_per_gatherer=config.gatherers.max_files_per_gatherer,
         max_retries=config.veto.max_retries,

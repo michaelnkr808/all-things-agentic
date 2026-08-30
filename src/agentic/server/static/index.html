@@ -126,6 +126,90 @@ h2.sec {
 }
 .example:hover { border-color: var(--accent); color: var(--text); }
 
+/* ---------- role comparison ---------- */
+#compare-row select { flex: 1; }
+#compare-row .ghost { flex-shrink: 0; }
+.cmp-cols { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.cmp-col {
+  flex: 1; min-width: 220px; padding: 10px 12px; border-radius: 8px;
+  background: var(--panel-2); border: 1px solid var(--line);
+}
+.cmp-col .who {
+  display: flex; align-items: baseline; gap: 7px; margin-bottom: 8px;
+}
+.cmp-col .who .role { font-size: 13px; font-weight: 600; color: var(--text); }
+.cmp-col .who .n { font-size: 11px; color: var(--faint); }
+.cmp-col .prose { font-size: 12px; line-height: 1.6; color: var(--dim);
+  max-height: 190px; overflow-y: auto; }
+.cmp-delta { margin-bottom: 10px; }
+.cmp-delta h4 {
+  font-size: 10px; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--faint); margin: 0 0 5px; font-weight: 600;
+}
+.cmp-files { display: flex; flex-wrap: wrap; gap: 4px; }
+.cmp-file {
+  font-size: 10.5px; padding: 2px 7px; border-radius: 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #1f3326; color: #b5dd8f;
+}
+.cmp-file.denied { background: #35222a; color: #f0a3b1; }
+.cmp-none { font-size: 11px; color: var(--faint); }
+
+/* ---------- access ledger ---------- */
+#audit-summary {
+  font-size: 11px; color: var(--faint); margin-bottom: 8px; line-height: 1.5;
+}
+#audit-summary b { color: var(--text); font-variant-numeric: tabular-nums; }
+#audit-summary .n-deny { color: #f0a3b1; }
+#audit-list { max-height: 210px; overflow-y: auto; }
+.audit-row {
+  display: flex; align-items: baseline; gap: 7px; padding: 4px 0;
+  font-size: 11px; border-bottom: 1px solid var(--line);
+}
+.audit-row:last-child { border-bottom: 0; }
+.audit-row .verdict {
+  font-size: 9px; letter-spacing: .05em; text-transform: uppercase;
+  padding: 1px 5px; border-radius: 4px; flex-shrink: 0;
+}
+.audit-row.allow .verdict { background: #1f3326; color: #9ece6a; }
+.audit-row.deny  .verdict { background: #35222a; color: #f0a3b1; }
+.audit-row .where {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; color: var(--dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px;
+}
+.audit-row .stage { font-size: 9.5px; color: var(--faint); flex-shrink: 0; }
+
+/* ---------- citation coverage ---------- */
+#coverage { margin: 10px 0 2px; }
+.meters { display: flex; gap: 14px; flex-wrap: wrap; }
+.meter { flex: 1; min-width: 92px; }
+.meter .m-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 10px; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--faint); margin-bottom: 4px;
+}
+.meter .m-head b { font-size: 12px; color: var(--text); font-weight: 600;
+  font-variant-numeric: tabular-nums; letter-spacing: 0; text-transform: none; }
+.meter .track {
+  height: 4px; border-radius: 999px; background: var(--panel-2);
+  overflow: hidden;
+}
+.meter .fill { height: 100%; border-radius: 999px; background: var(--accent); }
+.meter.good .fill { background: #9ece6a; }
+.meter.warn .fill { background: #e0af68; }
+.meter.bad  .fill { background: #f7768e; }
+.meter.none .fill { background: var(--line); }
+.coverage-flag {
+  margin-top: 9px; padding: 7px 9px; border-radius: 7px; font-size: 11px;
+  line-height: 1.5; background: #35222a; border: 1px solid #5c3340;
+  color: #f0a3b1;
+}
+.coverage-flag b { color: #ffd7de; font-weight: 600; }
+.coverage-flag code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px;
+}
+
 /* ---------- replays ---------- */
 .replay {
   display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left;
@@ -289,6 +373,10 @@ select {
         <button class="primary" id="run-btn">Run</button>
         <button class="ghost" id="cancel-btn" disabled>Cancel</button>
       </div>
+      <div class="row" id="compare-row" hidden>
+        <select id="compare-role"></select>
+        <button class="ghost" id="compare-btn">Compare</button>
+      </div>
       <div class="examples" id="examples"></div>
       <div id="err" hidden></div>
     </section>
@@ -318,6 +406,12 @@ select {
     <section>
       <h2 class="sec">Fleet</h2>
       <div id="fleet"></div>
+    </section>
+
+    <section id="audit-section" hidden>
+      <h2 class="sec">Access ledger</h2>
+      <div id="audit-summary"></div>
+      <div id="audit-list"></div>
     </section>
 
     <section id="veto-section" hidden>
@@ -350,6 +444,8 @@ select {
         <a class="chip" id="answer-viz" href="#" target="_blank"
            style="text-decoration:none">open standalone graph ↗</a>
       </div>
+      <div id="compare-panel" hidden></div>
+      <div id="coverage" hidden></div>
       <div id="answer-empty">No answer yet.</div>
       <div id="answer-body"></div>
     </div>
@@ -378,7 +474,7 @@ const $ = (id) => document.getElementById(id);
 let token = null, me = null, fleet = null;
 let network = null, nodes = null, edges = null;
 let deptColor = {};          // department -> hex
-let runId = null, running = false, replaying = false;
+let runId = null, running = false, replaying = false, comparing = false;
 let queue = [], draining = false;   // staggered node insertion
 // username -> password, populated only when the server enables demo mode
 // (GET /api/demo-mode). Empty in any real deployment.
@@ -485,6 +581,7 @@ async function enterApp() {
   $("who").className = "chip role-" + me.role;
   await loadFleet();
   await loadReplays();
+  await loadAudit();
   initGraph();
   renderExamples();
 }
@@ -515,6 +612,20 @@ async function loadFleet() {
   $("retries").max = fleet.max_retries;
   $("retries").value = fleet.max_retries;
   $("retries-val").textContent = fleet.max_retries;
+
+  // Comparison is downward only: the server computes which roles this
+  // principal may compare against and refuses anything else, so an empty
+  // list means the control never appears.
+  const cmp = $("compare-role");
+  cmp.textContent = "";
+  const roles = fleet.compare_roles || [];
+  $("compare-row").hidden = roles.length === 0;
+  for (const role of roles) {
+    const opt = document.createElement("option");
+    opt.value = role;
+    opt.textContent = "compare vs " + role;
+    cmp.appendChild(opt);
+  }
 
   const sel = $("veto-model");
   sel.textContent = "";
@@ -741,6 +852,7 @@ function clearStages() {
 }
 
 $("run-btn").addEventListener("click", startRun);
+$("compare-btn").addEventListener("click", startCompare);
 $("prompt").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) startRun();
 });
@@ -750,6 +862,187 @@ $("cancel-btn").addEventListener("click", async () => {
   await api(`/api/run/${runId}/cancel`, { method: "POST" });
   $("stage-label").textContent = "cancelling…";
 });
+
+/* ============================ role comparison ============================ */
+
+/* One prompt, two roles, at once. The live graph follows the caller's own
+   side only — the other side's files would land on the same map with no way
+   to tell whose run they belonged to. Both sides pass every gate for their
+   own role; this is two permission checks, not a skipped one. */
+async function startCompare() {
+  const prompt = $("prompt").value.trim();
+  if (!prompt || running) return;
+  const asRole = $("compare-role").value;
+  if (!asRole) return;
+
+  beginRun();
+  comparing = true;
+  $("run-mode").hidden = false;
+  $("run-mode").className = "chip";
+  $("run-mode").textContent = `${me.role} vs ${asRole}`;
+  $("stage-label").textContent = `running as ${me.role} and as ${asRole}…`;
+
+  const body = {
+    prompt,
+    as_role: asRole,
+    max_gatherers: Number($("fanout").value),
+    max_retries: Number($("retries").value),
+  };
+  if (!$("veto-model-ctrl").hidden) body.veto_model = $("veto-model").value;
+
+  let res;
+  try {
+    res = await api("/api/compare", { method: "POST", body: JSON.stringify(body) });
+  } catch (e) { finishRun(); showError(String(e)); return; }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    finishRun();
+    showError(data.detail || `comparison failed (${res.status})`);
+    return;
+  }
+  await consumeStream(res);
+  finishRun();
+}
+
+function renderCompare(diff) {
+  const host = $("compare-panel");
+  host.textContent = "";
+  host.hidden = false;
+  $("answer-empty").hidden = true;
+
+  const cols = document.createElement("div");
+  cols.className = "cmp-cols";
+  for (const key of ["yours", "theirs"]) {
+    const side = diff[key];
+    if (!side) continue;
+    const col = document.createElement("div");
+    col.className = "cmp-col";
+
+    const who = document.createElement("div");
+    who.className = "who";
+    const role = document.createElement("span");
+    role.className = "role";
+    role.textContent = side.role;
+    const n = document.createElement("span");
+    n.className = "n";
+    const files = side.sources ? side.sources.length : 0;
+    const denied = side.denied ? side.denied.length : 0;
+    n.textContent = `${files} file${files === 1 ? "" : "s"}`
+      + (denied ? ` · ${denied} denied` : "");
+    who.append(role, n);
+
+    const prose = document.createElement("div");
+    prose.className = "prose";
+    renderMarkdown(prose, stripAnswerScaffolding(side.answer));
+
+    col.append(who, prose);
+    cols.appendChild(col);
+  }
+  host.appendChild(cols);
+
+  host.appendChild(fileDelta(
+    `only ${diff.yours.role} could read`, diff.only_yours, false));
+  if (diff.theirs.denied && diff.theirs.denied.length) {
+    host.appendChild(fileDelta(
+      `${diff.theirs.role} was denied`, diff.theirs.denied, true));
+  }
+}
+
+function fileDelta(label, files, denied) {
+  const box = document.createElement("div");
+  box.className = "cmp-delta";
+  const head = document.createElement("h4");
+  head.textContent = label;
+  box.appendChild(head);
+
+  if (!files || !files.length) {
+    const none = document.createElement("div");
+    none.className = "cmp-none";
+    none.textContent = "nothing";
+    box.appendChild(none);
+    return box;
+  }
+  const list = document.createElement("div");
+  list.className = "cmp-files";
+  for (const f of files) {
+    const chip = document.createElement("span");
+    chip.className = "cmp-file" + (denied ? " denied" : "");
+    chip.textContent = f;
+    list.appendChild(chip);
+  }
+  box.appendChild(list);
+  return box;
+}
+
+/* The compare panel shows prose, not the full document — the frontmatter and
+   the Sources list are the same scaffolding renderAnswer strips. */
+function stripAnswerScaffolding(markdown) {
+  let body = markdown || "";
+  if (body.startsWith("---")) {
+    const end = body.indexOf("\n---", 3);
+    if (end !== -1) body = body.slice(end + 4);
+  }
+  const sourcesAt = body.indexOf("## Sources");
+  if (sourcesAt !== -1) body = body.slice(0, sourcesAt);
+  return body.replace(/^#+\s*Answer\s*\n/, "").trim();
+}
+
+/* ============================ access ledger ============================ */
+
+/* Every permission decision this principal's runs have made, newest first,
+   written by agentic/audit.py at both gates. Server-side it is pinned to the
+   caller: an audit line names files in departments the reader may not be
+   cleared for, so nobody browses anyone else's. */
+async function loadAudit() {
+  let data;
+  try {
+    const res = await api("/api/audit?limit=120");
+    if (!res.ok) { $("audit-section").hidden = true; return; }
+    data = await res.json();
+  } catch { $("audit-section").hidden = true; return; }
+
+  const entries = (data && data.entries) || [];
+  $("audit-section").hidden = entries.length === 0;
+  if (!entries.length) return;
+
+  const s = data.summary || {};
+  const sum = $("audit-summary");
+  sum.textContent = "";
+  const total = document.createElement("b");
+  total.textContent = s.total;
+  const denied = document.createElement("b");
+  denied.className = "n-deny";
+  denied.textContent = s.denied;
+  sum.append(
+    total, document.createTextNode(" decisions across "),
+    document.createTextNode(String(s.runs)),
+    document.createTextNode(s.runs === 1 ? " run · " : " runs · "),
+    denied, document.createTextNode(" denied"),
+  );
+
+  const list = $("audit-list");
+  list.textContent = "";
+  for (const e of entries) {
+    const row = document.createElement("div");
+    row.className = "audit-row " + (e.decision === "deny" ? "deny" : "allow");
+
+    const verdict = document.createElement("span");
+    verdict.className = "verdict";
+    verdict.textContent = e.decision === "deny" ? "deny" : "allow";
+
+    const where = document.createElement("span");
+    where.className = "where";
+    where.textContent = `${e.department}/${e.path}`;
+
+    const stage = document.createElement("span");
+    stage.className = "stage";
+    stage.textContent = e.stage;
+
+    row.append(verdict, where, stage);
+    if (e.reason) row.title = `${e.stage}: ${e.reason}`;
+    list.appendChild(row);
+  }
+}
 
 /* ============================ replays ============================ */
 
@@ -825,12 +1118,14 @@ async function startReplay(item) {
 /* Shared by a live run and a replay: same reset, same event handling, because
    a replay is the same event stream. */
 function beginRun() {
-  running = true; replaying = false; runId = null;
+  running = true; replaying = false; comparing = false; runId = null;
   $("run-btn").disabled = true; $("cancel-btn").disabled = false;
   $("run-mode").hidden = true;
   $("err").hidden = true;
   $("answer-head").hidden = true; $("answer-body").textContent = "";
   $("answer-empty").hidden = false;
+  $("coverage").hidden = true; $("coverage").textContent = "";
+  $("compare-panel").hidden = true; $("compare-panel").textContent = "";
   $("veto-section").hidden = true; $("veto-list").textContent = "";
   resetGraph();
   renderFleet();
@@ -895,9 +1190,11 @@ async function startRun() {
 function finishRun() {
   running = false; runId = null;
   $("run-btn").disabled = false; $("cancel-btn").disabled = true;
+  // A replay makes no permission decisions, so the ledger is unchanged.
+  if (!replaying) loadAudit();  // a comparison makes decisions on both sides
   // The replay chip stays up after the stream ends: whether what is on screen
   // came from a live fleet or from disk should never be ambiguous.
-  if (!replaying) $("run-mode").hidden = true;
+  if (!replaying && !comparing) $("run-mode").hidden = true;
 }
 
 const counts = {};
@@ -915,7 +1212,26 @@ function handleFrame(frame) {
 }
 
 function onEvent(event, p) {
+  // In a comparison both runs stream at once. The live graph follows the
+  // caller's own side; the other side's files would land on the same map
+  // with nothing to tell them apart. Errors are always surfaced.
+  if (p && p.side === "theirs" && event !== "error") return;
+
   switch (event) {
+    case "compare_started":
+      runId = p.run_id;
+      Object.keys(counts).forEach((k) => delete counts[k]);
+      break;
+
+    case "compare_result":
+      renderCompare(p);
+      $("stage-label").textContent = "";
+      break;
+
+    case "compare_failed":
+      showError(p.message || "the comparison did not finish");
+      break;
+
     case "run_started":
       runId = p.run_id;
       if (p.replay) replaying = true;
@@ -1035,12 +1351,89 @@ function renderAnswer(p) {
     `${p.attempts} check${p.attempts === 1 ? "" : "s"} · revision ${p.revision}`;
   if (p.viz_url) { $("answer-viz").href = p.viz_url; $("answer-viz").hidden = false; }
   else $("answer-viz").hidden = true;
+  renderCoverage(p.citations);
 
   // The answer node's `detail` is viz._answer_panel_text() — frontmatter, the
   // heading and the Sources list already stripped by the same code the
   // standalone page uses. Fall back to the raw markdown if it is absent.
   const answerNode = (p.graph && p.graph.nodes || []).find((n) => n.kind === "answer");
   renderMarkdown($("answer-body"), answerNode ? answerNode.detail : p.obsidian_markdown);
+}
+
+/* Citation coverage: three ratios computed server-side in agentic/citations.py.
+   The veto badge says pass or fail; this says how close it was. A null ratio
+   means the denominator was zero — shown as "n/a", never as a confident 0%. */
+const METERS = [
+  ["integrity", "citations that resolve"],
+  ["grounding", "paragraphs that cite"],
+  ["usage", "gathered files used"],
+];
+
+function renderCoverage(c) {
+  const host = $("coverage");
+  host.textContent = "";
+  if (!c) { host.hidden = true; return; }
+  host.hidden = false;
+
+  const row = document.createElement("div");
+  row.className = "meters";
+  for (const [key, label] of METERS) {
+    const value = c[key];
+    const meter = document.createElement("div");
+    meter.className = "meter " + rateClass(key, value);
+    meter.title = label;
+
+    const head = document.createElement("div");
+    head.className = "m-head";
+    const name = document.createElement("span");
+    name.textContent = key;
+    const pct = document.createElement("b");
+    pct.textContent = value === null || value === undefined
+      ? "n/a" : Math.round(value * 100) + "%";
+    head.append(name, pct);
+
+    const track = document.createElement("div");
+    track.className = "track";
+    const fill = document.createElement("div");
+    fill.className = "fill";
+    fill.style.width = ((value || 0) * 100) + "%";
+    track.appendChild(fill);
+
+    meter.append(head, track);
+    row.appendChild(meter);
+  }
+  host.appendChild(row);
+
+  // An unresolved citation renders identically to a real one, which is what
+  // makes it worth calling out rather than leaving in a percentage.
+  if (c.unresolved && c.unresolved.length) {
+    const flag = document.createElement("div");
+    flag.className = "coverage-flag";
+    const lead = document.createElement("b");
+    lead.textContent = c.unresolved.length === 1
+      ? "1 citation does not resolve: "
+      : `${c.unresolved.length} citations do not resolve: `;
+    flag.appendChild(lead);
+    c.unresolved.forEach((name, i) => {
+      if (i) flag.appendChild(document.createTextNode(", "));
+      const code = document.createElement("code");
+      code.textContent = name;
+      flag.appendChild(code);
+    });
+    flag.appendChild(document.createTextNode(
+      " — no gatherer returned that file."));
+    host.appendChild(flag);
+  }
+}
+
+function rateClass(key, value) {
+  if (value === null || value === undefined) return "none";
+  // Integrity is pass/fail in spirit: a single unresolved citation is a
+  // defect, not a slightly lower score. The other two are gradients.
+  if (key === "integrity") return value === 1 ? "good" : "bad";
+  if (value >= 0.75) return "good";
+  if (value >= 0.4) return "warn";
+  return "bad";
 }
 
 /* Minimal markdown → DOM. Everything is inserted with textContent, so nothing

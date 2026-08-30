@@ -41,6 +41,17 @@ class RunRequest(BaseModel):
     departments: list[str] | None = None
 
 
+class CompareRequest(RunRequest):
+    """POST /api/compare — the same prompt under two roles.
+
+    `as_role` must be a role that sees strictly fewer departments than the
+    caller (server/compare.py::check_comparable). It is a comparison, never
+    an impersonation: both sides run through every gate for their own role.
+    """
+
+    as_role: str = Field(min_length=1)
+
+
 class FleetResponse(BaseModel):
     """GET /api/fleet — what this principal may see, before any run.
 
@@ -53,6 +64,8 @@ class FleetResponse(BaseModel):
     departments: list["FleetDepartment"]
     models: dict[str, str]
     veto_choices: list[str] = Field(default_factory=list)
+    #: Roles this principal may run a side-by-side comparison against.
+    compare_roles: list[str] = Field(default_factory=list)
     max_gatherers: int
     max_files_per_gatherer: int
     max_retries: int

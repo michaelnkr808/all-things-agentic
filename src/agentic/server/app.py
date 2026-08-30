@@ -10,6 +10,7 @@ Routes:
 - POST /api/run    Bearer token, {prompt} -> text/event-stream
                    events: run_started, gatherer_result, gathered,
                    synthesized, veto, revising, run_state, error
+- POST /api/compare        Bearer token -> the same prompt under two roles
 - GET  /api/replays        recorded runs available to this role
 - POST /api/replay/{name}  Bearer token -> the same event stream, from disk
 - GET  /           reference frontend (static/index.html — Michael replaces)
@@ -36,12 +37,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from agentic import audit
 from agentic.client import viz
 from agentic.contracts.config import ConfigError
 from agentic.env import load_env
 from agentic.gatherers import permissions
-from agentic.server import auth, replay, runs
-from agentic.server.schemas import FleetResponse, LoginRequest, RunRequest, TokenResponse
+from agentic.server import auth, compare, replay, runs
+from agentic.server.schemas import (
+    CompareRequest,
+    FleetResponse,
+    LoginRequest,
+    RunRequest,
+    TokenResponse,
+)
 from agentic.server.sse import SseQueue
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -241,13 +249,21 @@ def create_app() -> FastAPI:
 
         async def runner() -> None:
             try:
-                await runs.execute_run(
-                    body.prompt,
-                    principal.role,
-                    emit=run_emit,
-                    config_path=config_path,
-                    config=config,
-                )
+                # Every permission decision inside this block is attributed to
+                # this run and this principal — see agentic/audit.py.
+                with audit.run_context(
+                    run_id=run_id,
+                    principal=principal.username,
+                    role=principal.role,
+                    prompt=body.prompt,
+                ):
+                    await runs.execute_run(
+                        body.prompt,
+                        principal.role,
+                        emit=run_emit,
+                        config_path=config_path,
+                        config=config,
+                    )
             except asyncio.CancelledError:
                 sse.emit("error", {"message": "run cancelled"})
                 raise
@@ -274,6 +290,101 @@ def create_app() -> FastAPI:
             media_type="text/event-stream",
             headers=_SSE_HEADERS,
         )
+
+    @app.post("/api/compare")
+    async def compare_roles_run(
+        body: CompareRequest,
+        principal: auth.TokenPrincipal = Depends(current_principal),
+    ) -> StreamingResponse:
+        """Run one prompt as the caller and as a strictly narrower role.
+
+        Downward only. `as_role` must see fewer departments than the caller,
+        checked before anything runs — otherwise this endpoint would be a way
+        to ask "what would an admin see?" from an analyst's session. Both
+        sides still pass every gate under their own role; this runs two
+        permission checks, it does not skip one.
+        """
+        config_path = _env_path("AGENTIC_CONFIG_PATH", runs.DEFAULT_CONFIG_PATH)
+        try:
+            perms = runs.permissions_for_request(principal.role)
+            compare.check_comparable(principal.role, body.as_role, perms)
+            config = runs.apply_overrides(
+                runs.load_config(config_path),
+                max_gatherers=body.max_gatherers,
+                max_retries=body.max_retries,
+                veto_model=body.veto_model,
+                departments=body.departments,
+            )
+        except compare.CompareError as e:
+            raise HTTPException(403, detail=str(e)) from None
+        except runs.OverrideError as e:
+            raise HTTPException(400, detail=str(e)) from None
+        except ConfigError as e:
+            raise HTTPException(503, detail=str(e)) from None
+
+        sse = SseQueue()
+        run_id = uuid.uuid4().hex
+
+        def emit(event: str, payload: dict) -> None:
+            if event == "compare_started":
+                payload = {**payload, "run_id": run_id}
+            sse.emit(event, payload)
+
+        async def execute(prompt: str, role: str, *, emit, **kwargs) -> dict:
+            # Each side carries its own role into the ledger, so a comparison
+            # leaves two attributable halves rather than one blurred record.
+            with audit.run_context(
+                run_id=run_id,
+                principal=principal.username,
+                role=role,
+                prompt=prompt,
+            ):
+                return await runs.execute_run(
+                    prompt, role, emit=emit, config_path=config_path, config=config
+                )
+
+        async def runner() -> None:
+            try:
+                await compare.run_comparison(
+                    body.prompt,
+                    principal.role,
+                    body.as_role,
+                    execute=execute,
+                    emit=emit,
+                )
+            except asyncio.CancelledError:
+                sse.emit("error", {"message": "comparison cancelled"})
+                raise
+            except Exception:
+                pass  # run_comparison already emitted the per-side error
+            finally:
+                _active_runs.pop(run_id, None)
+                sse.close()
+
+        task = asyncio.create_task(runner())
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+        _active_runs[run_id] = (task, principal.username)
+        return StreamingResponse(
+            sse.stream(),
+            media_type="text/event-stream",
+            headers=_SSE_HEADERS,
+        )
+
+    @app.get("/api/audit")
+    def audit_log(
+        limit: int = 200,
+        principal: auth.TokenPrincipal = Depends(current_principal),
+    ) -> dict:
+        """This principal's permission decisions, newest first.
+
+        Pinned to the caller: an audit line names files inside departments the
+        reader may not be cleared for, so one user's ledger is not another's
+        to browse. The denials in here are the caller's own, which is exactly
+        what makes them worth showing.
+        """
+        entries = audit.read(principal=principal.username, limit=max(1, min(limit, 1000)))
+        return {"entries": entries, "summary": audit.summarise(entries)}
 
     @app.get("/api/replays")
     def replays(

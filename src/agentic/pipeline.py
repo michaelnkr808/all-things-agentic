@@ -44,6 +44,7 @@ from agentic.contracts.messages import CompiledOutput, GatherRequest, GatherResu
 from agentic.env import load_env
 from agentic.state_manager import manager
 from agentic.veto import checker
+from agentic import citations
 from agentic.client import viz
 
 DEFAULT_OUT = Path("out/graph.html")
@@ -195,13 +196,21 @@ async def _run(
     )
     # The same builder the standalone page uses, so the live frontend draws an
     # identical graph instead of reimplementing the node vocabulary in JS.
-    emit("run_state", _run_state(result, viz.build_graph(compiled, results, verdict)))
+    emit(
+        "run_state",
+        _run_state(
+            result,
+            viz.build_graph(compiled, results, verdict),
+            citations.score(compiled, results),
+        ),
+    )
     return result
 
 
-def _run_state(result: RunResult, graph: dict) -> dict:
+def _run_state(result: RunResult, graph: dict, coverage: dict) -> dict:
     """The final SSE payload: everything a client needs to render the answer."""
     return {
+        "citations": coverage,
         "approved": result.verdict.approved,
         "attempts": result.attempts,
         "obsidian_markdown": result.compiled.obsidian_markdown,
