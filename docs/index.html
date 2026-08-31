@@ -759,7 +759,7 @@ img, svg, canvas { max-width: 100%; }
               <span class="n">01</span>
               <h3>Plan the fan-out</h3>
               <p>A planner reads the question and decides which departments it touches. Its output schema is a closed set built from the live config, so it cannot name a department that does not exist.
-              <span class="model">Gemini Flash · Google ADK</span></p>
+              <span class="model">Gemini 3.5 Flash · Vertex AI · Google ADK</span></p>
             </div>
             <div class="station" data-station="1">
               <span class="n">02</span>
@@ -771,7 +771,7 @@ img, svg, canvas { max-width: 100%; }
               <span class="n">03</span>
               <h3>Read in parallel</h3>
               <p>One gatherer per department, running concurrently. They read whole files rather than guessing from filenames, which is how budget_2026_final.csv gets found from a question about Q3 spend.
-              <span class="model">Gemini Flash</span></p>
+              <span class="model">Gemini 3.5 Flash · Vertex AI</span></p>
             </div>
             <div class="station" data-station="3">
               <span class="n">04</span>
@@ -1020,7 +1020,7 @@ img, svg, canvas { max-width: 100%; }
       </div>
       <div class="stats" style="margin-top:2.2rem">
         <div class="stat"><div class="n" data-to="4">0</div><div class="l">denied before<br>any file opened</div></div>
-        <div class="stat"><div class="n" data-to="243">0</div><div class="l">tests passing</div></div>
+        <div class="stat"><div class="n" data-to="245">0</div><div class="l">tests passing</div></div>
         <div class="stat"><div class="n" data-to="5">0</div><div class="l">independent gates<br>every file passes</div></div>
         <div class="stat"><div class="n">0</div><div class="l">restricted bytes<br>sent to a model</div></div>
       </div>
@@ -1236,8 +1236,8 @@ img, svg, canvas { max-width: 100%; }
     <div>
       <h2>What it is made of</h2>
       <dl class="stack-list" style="margin-top:1.2rem">
-        <div class="stack-row"><dt>Planner</dt><dd>Gemini Flash on Google ADK<span class="note">Dynamic closed-schema output, so a hallucinated department fails validation before anything runs.</span></dd></div>
-        <div class="stack-row"><dt>Gatherers</dt><dd>Gemini Flash, one per department<span class="note">Fanned out concurrently under a configurable cap.</span></dd></div>
+        <div class="stack-row"><dt>Planner</dt><dd>Gemini 3.5 Flash on Vertex AI, through Google ADK<span class="note">Dynamic closed-schema output, so a hallucinated department fails validation before anything runs.</span></dd></div>
+        <div class="stack-row"><dt>Gatherers</dt><dd>Gemini 3.5 Flash, one per department<span class="note">Fanned out concurrently under a configurable cap.</span></dd></div>
         <div class="stack-row"><dt>Veto checker</dt><dd>Claude<span class="note">Structured verdict, swappable at run time from an operator allowlist.</span></dd></div>
         <div class="stack-row"><dt>Storage</dt><dd>Local filesystem, Google Cloud Storage, or Google Drive<span class="note">A cloud object passes the same gate, and the same containment rules, as a local file.</span></dd></div>
         <div class="stack-row"><dt>Backend</dt><dd>FastAPI with server-sent events<span class="note">JWT auth. The authenticated role becomes the principal for every gate and is never read from a request body.</span></dd></div>

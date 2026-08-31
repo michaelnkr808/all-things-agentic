@@ -124,3 +124,30 @@ def test_nothing_gathered_gives_null_ratios_not_a_confident_zero():
     assert s["usage"] is None
     assert s["grounding"] == 0.0
     assert s["gathered"] == 0
+
+
+def test_a_heading_does_not_swallow_the_paragraph_under_it():
+    """Caught on the deployed instance: models write `### Heading` and its
+    prose as one block separated by a single newline. Filtering per block
+    dropped the prose and its citations along with the heading, so an answer
+    made entirely of cited paragraphs scored as having none."""
+    out = _compiled(
+        "### Q3 Spend\nEngineering came in under budget "
+        "[[engineering/infra-spend-q3.md]].\n\n"
+        "#### Headcount\n* Costs were $118,000 [[finance/headcount-costs.csv]]."
+    )
+    s = citations.score(out, _results(
+        ("engineering", "infra-spend-q3.md"), ("finance", "headcount-costs.csv")
+    ))
+
+    assert s["paragraphs"] == 2
+    assert s["paragraphs_cited"] == 2
+    assert s["grounding"] == 1.0
+
+
+def test_a_heading_only_block_is_not_counted_as_an_uncited_paragraph():
+    out = _compiled("## Findings\n\n### Detail\n\nSpend was high [[engineering/roadmap.md]].")
+    s = citations.score(out, _results(("engineering", "roadmap.md")))
+
+    assert s["paragraphs"] == 1
+    assert s["grounding"] == 1.0

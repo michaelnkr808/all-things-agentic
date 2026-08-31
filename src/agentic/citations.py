@@ -35,7 +35,8 @@ from agentic.contracts.messages import CompiledOutput, GatherResult
 WIKILINK = re.compile(r"\[\[([^\]]+)\]\]")
 
 #: Lines that are structure rather than claims, and so are not asked to cite.
-_SKIP_LINE = re.compile(r"^\s*(#{1,6}\s|[-*+]\s*$|\||```)")
+#: An empty bullet counts as structure; a bullet with a claim on it does not.
+_STRUCTURE = re.compile(r"^\s*(#{1,6}\s|[-*+]\s*$|\||```)")
 
 
 def _prose(markdown: str) -> str:
@@ -56,8 +57,24 @@ def _prose(markdown: str) -> str:
 
 
 def _paragraphs(prose: str) -> list[str]:
-    blocks = [b.strip() for b in re.split(r"\n{2,}", prose) if b.strip()]
-    return [b for b in blocks if not _SKIP_LINE.match(b)]
+    """Blocks that make claims, with their structural lines stripped out.
+
+    Filtering per line rather than per block, because models routinely write a
+    heading and its prose as one block separated by a single newline. Testing
+    the block as a whole saw the leading `###` and discarded the paragraph
+    underneath it along with its citations, which is how a real answer made
+    entirely of cited prose scored as having no paragraphs at all.
+    """
+    out = []
+    for block in re.split(r"\n{2,}", prose):
+        kept = [
+            line for line in block.splitlines()
+            if line.strip() and not _STRUCTURE.match(line)
+        ]
+        text = "\n".join(kept).strip()
+        if text:
+            out.append(text)
+    return out
 
 
 def gathered_keys(results: list[GatherResult]) -> set[str]:

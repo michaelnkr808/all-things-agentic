@@ -14,7 +14,7 @@ Two things are deliberately not shortcuts:
 
 - **A replay is pinned to the role that recorded it.** A run recorded as
   admin contains files an analyst is not allowed to read. Serving that
-  recording to an analyst would walk straight past the four gates the rest
+  recording to an analyst would walk straight past the five gates the rest
   of this project exists to enforce, so ``stream_recording`` is only ever
   reached after the caller's authenticated role matches ``role``. The
   listing shows which role each recording needs.

@@ -1,0 +1,11 @@
+.venv/
+.git/
+.env
+__pycache__/
+*.pyc
+*.egg-info/
+out/
+tests/
+config/environment.yaml
+config/permissions.yaml
+config/users.yaml

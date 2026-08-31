@@ -90,12 +90,15 @@ The stack:
 - **Google Cloud Storage** for cloud backed departments, where the department
   name is the bucket prefix and the prefix is the containment root, so a cloud
   object passes exactly the same gate as a local file
+- **Cloud Run** hosting the server, reaching Vertex and the bucket through the
+  runtime service account's Application Default Credentials, so the deployed
+  image carries no key file and no credentials at all
 - **FastAPI with server sent events**, so the browser watches the fleet work
   file by file instead of waiting on a spinner
 - a **hand written canvas renderer** for the graph, shared by the live app and a
   self contained offline page
 
-243 tests, about 4,000 lines of them against 4,800 lines of source. The pipeline
+245 tests, about 4,000 lines of them against 4,800 lines of source. The pipeline
 is faked at its seams so the permission gates, the injection defences, the audit
 ledger and the GCS wire protocol are all covered without API keys.
 
@@ -197,8 +200,9 @@ canvas, github-pages, markdown
 
 | Link | What it is |
 |---|---|
-| `https://github.com/michaelnkr808/cartographer` | Source, with setup and reproducible testing instructions in the README |
+| `https://cartographer-923557756991.us-central1.run.app` | **Live fleet.** Sign in as `alice` (analyst) or `root` (admin) with the one-click demo buttons and ask it something |
 | `https://michaelnkr808.github.io/cartographer/` | Project page: the architecture, the gate, and the injection defence as a scrollable walkthrough |
+| `https://github.com/michaelnkr808/cartographer` | Source, with setup and reproducible testing instructions in the README |
 
 ---
 
@@ -213,13 +217,29 @@ canvas, github-pages, markdown
 | Date started | 08-14-26 |
 | Code repo URL | `https://github.com/michaelnkr808/cartographer` |
 | Reproducible testing instructions in README | Yes |
-| Hosted project URL | `https://michaelnkr808.github.io/cartographer/` (project page; the fleet itself runs locally, see below) |
+| Hosted project URL | `https://cartographer-923557756991.us-central1.run.app` (the running fleet, on Cloud Run) |
 | Which Google SDK | Google Agent Development Kit (ADK) for Python, plus the `google-genai` SDK for direct calls, and `google-cloud-storage` |
-| Which Google Cloud services | Vertex AI (Gemini inference), Cloud Storage (cloud backed departments), IAM / Application Default Credentials |
+| Which Google Cloud services | **Cloud Run** (hosts the server), **Vertex AI** (Gemini inference), **Cloud Storage** (cloud backed departments), Cloud Build + Artifact Registry (deploy), IAM / Application Default Credentials |
 | Which Google AI models | `gemini-3.5-flash` on Vertex AI, used for the planner, the gatherer fleet and the synthesiser |
 | Startup prize | Not opting in |
 
 ### Testing instructions (judges only, not public)
+
+**Fastest path: use the live instance.** <https://cartographer-923557756991.us-central1.run.app>
+
+One-click demo logins are enabled on the sign-in card, so no credentials need
+typing. If you want them explicitly:
+
+| user | role | password |
+|---|---|---|
+| `alice` | analyst | `umK3_K56IasY` |
+| `root` | admin | `-BzJcXIYCxVI` |
+
+The `finance` department on that instance reads from a real Cloud Storage
+bucket, so a run exercises the GCS adapter and the permission gate against
+live cloud objects, not local files. Watch for the `downloading` event.
+
+To run it yourself instead:
 
 ```bash
 git clone https://github.com/michaelnkr808/cartographer && cd cartographer
@@ -268,7 +288,7 @@ a UI restriction.
 Run the suite:
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pytest tests/ -q     # 243 tests
+PYTHONPATH=src .venv/bin/python -m pytest tests/ -q     # 245 tests
 ```
 
 The live model tests in `tests/test_checker.py` skip themselves without keys.

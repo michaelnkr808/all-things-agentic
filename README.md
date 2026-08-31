@@ -3,6 +3,8 @@
 Maps what an enterprise knows, and what you're allowed to know, into a graph
 you can read.
 
+**Live demo:** <https://cartographer-923557756991.us-central1.run.app> (Cloud Run; one-click demo logins on the sign-in card)
+
 **Project page:** <https://michaelnkr808.github.io/cartographer/> ·
 source in [`docs/index.html`](docs/index.html), also served by the running app
 at `/about`.
@@ -346,6 +348,24 @@ recordings/          # recorded runs for offline replay
 scripts/             # password hashing, GCS upload, demo recording, viz demo
 ```
 
+## Deploying to Cloud Run
+
+```bash
+gcloud auth login
+./deploy/deploy.sh          # builds, deploys, prints the URL and demo logins
+```
+
+The image carries no credentials. `config/*.yaml` stay gitignored and are
+generated at container start by [`deploy/entrypoint.sh`](deploy/entrypoint.sh)
+from environment variables, and Vertex and Cloud Storage are reached through
+the runtime service account's ADC, so there is no key file in the image or the
+repo. Demo passwords are minted once and read back off the running service on
+later deploys, so redeploying never invalidates a published credential.
+
+The deployed config ([`deploy/environment.cloud.yaml`](deploy/environment.cloud.yaml))
+keeps `finance` on GCS, so the live instance exercises the cloud adapter rather
+than only the local path.
+
 ## Reproducible testing
 
 From a clean clone, in order:
@@ -386,7 +406,7 @@ model calls. A recording only replays to the role that recorded it.
 PYTHONPATH=src .venv/bin/python -m pytest tests/ -q
 ```
 
-243 tests. The pipeline is faked at the manager/checker/viz seams so the HTTP
+245 tests. The pipeline is faked at the manager/checker/viz seams so the HTTP
 surface, the permission gates, the injection defences, the override clamping,
 the audit ledger, the replay role pin, the comparison direction and the GCS
 wire protocol are all covered without API keys. A handful of live tests
