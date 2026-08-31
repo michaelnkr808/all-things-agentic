@@ -95,8 +95,18 @@ The stack:
   image carries no key file and no credentials at all
 - **FastAPI with server sent events**, so the browser watches the fleet work
   file by file instead of waiting on a spinner
-- a **hand written canvas renderer** for the graph, shared by the live app and a
-  self contained offline page
+- **vis-network** for the graph, driven by one shared graph builder so the live
+  app and the self contained offline page always draw the same thing
+
+### Third party code and data
+
+The graph is drawn with [vis-network](https://visjs.github.io/vis-network/)
+9.1.9, vendored at `src/agentic/client/vendor/vis-network.min.js` so the offline
+graph page needs no CDN; it is dual licensed Apache 2.0 / MIT and ships with its
+license header intact. Everything else in `src/` we wrote during the submission
+period. The departments under `data/` are synthetic content we authored for the
+demo, including the planted injection payload; no real company data, and no
+external dataset, is used anywhere in the project.
 
 245 tests, about 4,000 lines of them against 4,800 lines of source. The pipeline
 is faked at its seams so the permission gates, the injection defences, the audit
@@ -189,7 +199,7 @@ behind the same gate.
 python, fastapi, uvicorn, pydantic, asyncio, server-sent-events, jwt, pbkdf2,
 google-cloud, vertex-ai, gemini, google-adk, google-genai, google-cloud-storage,
 google-drive-api, anthropic, claude, pytest, yaml, javascript, html5, css3,
-canvas, github-pages, markdown
+vis-network, github-pages, markdown
 ```
 
 25 tags.
